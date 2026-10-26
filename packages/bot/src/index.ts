@@ -45,6 +45,20 @@ if (webhookUrl) {
   // random POST from the internet trying to inject fake updates).
   const webhookSecret = process.env.BOT_WEBHOOK_SECRET;
   if (!webhookSecret) throw new Error("BOT_WEBHOOK_SECRET is not set (required when BOT_WEBHOOK_URL is set)");
+
+  // grammY's "http" adapter JSON.parses the request body inside a raw
+  // `req.once("end", ...)` listener, not inside the promise it hands back —
+  // a throw there (e.g. a GET with no body) becomes a genuine uncaught
+  // exception that bypasses any try/catch around the handler call and
+  // crashes the whole process. Confirmed in production: a plain GET to the
+  // public webhook URL took the bot down. The POST-only check below avoids
+  // this for anything Telegram wouldn't send in the first place; this
+  // process-level handler is the last-resort net for whatever that check
+  // doesn't catch.
+  process.on("uncaughtException", (err) => {
+    console.error("Uncaught exception in webhook server:", err);
+  });
+
   await bot.init();
   await bot.api.setWebhook(webhookUrl, { secret_token: webhookSecret });
 
@@ -57,6 +71,10 @@ if (webhookUrl) {
   // the same update, instead of taking the bot offline.
   const rawHandler = webhookCallback(bot, "http", { secretToken: webhookSecret });
   const server = createServer(async (req, res) => {
+    if (req.method !== "POST") {
+      res.writeHead(200).end();
+      return;
+    }
     try {
       await rawHandler(req, res);
     } catch (err) {
