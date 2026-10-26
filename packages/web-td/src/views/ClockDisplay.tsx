@@ -18,6 +18,7 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
   const remaining = level ? level.durationMinutes * 60 - elapsed : 0;
   const totalSeconds = level ? level.durationMinutes * 60 : 0;
   const urgent = level && !level.isBreak && remaining <= 30;
+  const finished = state?.tournament.status === "finished";
 
   // Chime + flash whenever the level actually changes (covers both a blind
   // bump and a break starting/ending, since a break is just a level row with
@@ -30,10 +31,30 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
     prevLevelRef.current = current;
   }, [state?.clock?.levelNumber]);
 
+  const celebratedRef = useRef(false);
+  useEffect(() => {
+    if (finished && !celebratedRef.current) {
+      celebratedRef.current = true;
+      playChime();
+    }
+  }, [finished]);
+
   if (!state) {
     return (
       <div style={styles.wrap}>
         <div style={styles.loading}>Подключение…</div>
+      </div>
+    );
+  }
+
+  if (finished) {
+    return (
+      <div style={styles.wrap}>
+        <style>{keyframes}</style>
+        <div style={styles.name}>{state.tournament.name}</div>
+        <div style={styles.trophy}>🏆</div>
+        <div style={styles.finishedTitle}>Турнир завершён!</div>
+        {state.winner && <div style={styles.winnerName}>Победитель: {state.winner.nickname}</div>}
       </div>
     );
   }
@@ -162,6 +183,7 @@ function playChime() {
 const keyframes = `
 @keyframes pulseRed { 0%, 100% { color: #f2f3f5; } 50% { color: #ff6b6b; } }
 @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes popIn { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
 `;
 
 const styles = {
@@ -179,6 +201,9 @@ const styles = {
   },
   loading: { fontSize: 24, color: "#8b98ab" },
   waiting: { fontSize: 28, color: "#8b98ab", marginTop: 40 },
+  trophy: { fontSize: 140, marginTop: 20, animation: "popIn 0.6s ease-out" },
+  finishedTitle: { fontSize: 44, fontWeight: 800, marginTop: 10 },
+  winnerName: { fontSize: 32, color: "#e8b23d", fontWeight: 700, marginTop: 20 },
   name: { fontSize: 28, fontWeight: 700, marginBottom: 20, color: "#4da3ff" },
   announcement: {
     position: "fixed" as const,

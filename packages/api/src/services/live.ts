@@ -9,7 +9,7 @@ export async function buildLiveState(db: Database, tournamentId: string) {
   // remote Postgres (Neon) costs real latency — running them sequentially made
   // the first SSE push take 4-5s. Firing them concurrently cuts that to the
   // slowest single query instead of the sum of all of them.
-  const [tournament, blindLevels, clockRow, registrations, tableRows, knockoutRows, rebuyTotalRow] =
+  const [tournament, blindLevels, clockRow, registrations, tableRows, knockoutRows, rebuyTotalRow, winnerRow] =
     await Promise.all([
       db
         .select()
@@ -58,6 +58,12 @@ export async function buildLiveState(db: Database, tournamentId: string) {
         .select({ total: sql<string>`coalesce(sum(${schema.rebuyAddonTransactions.amount}), 0)` })
         .from(schema.rebuyAddonTransactions)
         .where(eq(schema.rebuyAddonTransactions.tournamentId, tournamentId))
+        .then((rows) => rows[0]),
+      db
+        .select({ nickname: schema.players.nickname })
+        .from(schema.tournamentResults)
+        .innerJoin(schema.players, eq(schema.players.id, schema.tournamentResults.playerId))
+        .where(and(eq(schema.tournamentResults.tournamentId, tournamentId), eq(schema.tournamentResults.place, 1)))
         .then((rows) => rows[0]),
     ]);
 
@@ -141,6 +147,7 @@ export async function buildLiveState(db: Database, tournamentId: string) {
     chipLeader: chipLeader ? { playerId: chipLeader.playerId, nickname: chipLeader.nickname, stack: chipLeader.currentStack! } : null,
     payoutPreview,
     announcement: getAnnouncement(tournamentId),
+    winner: winnerRow ? { nickname: winnerRow.nickname } : null,
   };
 }
 

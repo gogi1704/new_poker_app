@@ -78,4 +78,5 @@ export interface LiveState {
   /** place -> amount; JSON round-trips object keys as strings. */
   payoutPreview: Record<string, number>;
   announcement: BoardAnnouncement | null;
+  winner: { nickname: string } | null;
 }
