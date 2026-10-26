@@ -1,0 +1,76 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env.production
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  bot:
+    build:
+      context: .
+      dockerfile: packages/bot/Dockerfile
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env.production
+    ports:
+      - "127.0.0.1:${BOT_WEBHOOK_HOST_PORT:-18092}:3002"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web-player:
+    build:
+      context: .
+      dockerfile: packages/web-player/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:${WEB_PLAYER_HOST_PORT:-18090}:80"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web-td:
+    build:
+      context: .
+      dockerfile: packages/web-td/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:${WEB_TD_HOST_PORT:-18091}:80"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

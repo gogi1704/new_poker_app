@@ -39,8 +39,14 @@ const webhookUrl = process.env.BOT_WEBHOOK_URL;
 
 if (webhookUrl) {
   const port = Number(process.env.BOT_WEBHOOK_PORT ?? 3002);
+  // The webhook endpoint is public once behind the reverse proxy, so a secret
+  // token is required — grammY checks it against Telegram's
+  // X-Telegram-Bot-Api-Secret-Token header and rejects anything else (e.g. a
+  // random POST from the internet trying to inject fake updates).
+  const webhookSecret = process.env.BOT_WEBHOOK_SECRET;
+  if (!webhookSecret) throw new Error("BOT_WEBHOOK_SECRET is not set (required when BOT_WEBHOOK_URL is set)");
   await bot.init();
-  await bot.api.setWebhook(webhookUrl);
+  await bot.api.setWebhook(webhookUrl, { secret_token: webhookSecret });
 
   // bot.catch() does not reliably stop a processing error from rejecting the
   // promise webhookCallback's own request handler returns — confirmed by
@@ -49,7 +55,7 @@ if (webhookUrl) {
   // process. Wrapping the handler here is the actual safety net: any error
   // gets logged and we still ack 200 to Telegram so it doesn't endlessly retry
   // the same update, instead of taking the bot offline.
-  const rawHandler = webhookCallback(bot, "http");
+  const rawHandler = webhookCallback(bot, "http", { secretToken: webhookSecret });
   const server = createServer(async (req, res) => {
     try {
       await rawHandler(req, res);
