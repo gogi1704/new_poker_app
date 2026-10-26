@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-player",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@poker/web-player", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "web-td",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@poker/web-td", "dev"],
+      "port": 5174
+    }
+  ]
+}

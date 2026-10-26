@@ -6,7 +6,6 @@
   --text: #f2f3f5;
   --muted: #8b98ab;
   --accent: #4da3ff;
-  --accent-2: #2f7fd6;
   --danger: #ff6b6b;
   --success: #4ade80;
 }
@@ -19,7 +18,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: "Roboto Condensed", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 #root {
@@ -131,8 +130,9 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #04101f;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
 }
 
 .btn-secondary {
@@ -280,8 +280,8 @@ body {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #04101f;
+  background: var(--accent);
+  color: #fff;
   border: none;
   font-size: 24px;
   cursor: pointer;

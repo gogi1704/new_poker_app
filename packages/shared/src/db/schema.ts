@@ -68,7 +68,7 @@ export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
   showPayoutPreview: true,
   showKnockoutTicker: true,
   showChipLeader: false,
-  accentColor: "#4da3ff",
+  accentColor: "#8c6a2f",
   soundEnabled: true,
   soundVolume: 0.7,
 };

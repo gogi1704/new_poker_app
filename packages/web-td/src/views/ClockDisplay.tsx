@@ -20,7 +20,7 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
   const urgent = level && !level.isBreak && remaining <= 30;
   const finished = state?.tournament.status === "finished";
   const settings = state?.board?.settings;
-  const accent = settings?.accentColor ?? "#4da3ff";
+  const accent = settings?.accentColor ?? "#8c6a2f";
 
   function chime() {
     if (settings && !settings.soundEnabled) return;
@@ -213,7 +213,7 @@ const styles = {
     flexDirection: "column" as const,
     alignItems: "center",
     justifyContent: "center",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontFamily: "'Roboto Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     textAlign: "center" as const,
     padding: 40,
   },
@@ -222,7 +222,7 @@ const styles = {
   logo: { width: 56, height: 56, borderRadius: 14, objectFit: "cover" as const, marginBottom: 10 },
   trophy: { fontSize: 140, marginTop: 20, animation: "popIn 0.6s ease-out" },
   finishedTitle: { fontSize: 44, fontWeight: 800, marginTop: 10 },
-  winnerName: { fontSize: 32, color: "#e8b23d", fontWeight: 700, marginTop: 20 },
+  winnerName: { fontSize: 32, color: "#c9a46a", fontWeight: 700, marginTop: 20 },
   name: { fontSize: 28, fontWeight: 700, marginBottom: 20, color: "#4da3ff" },
   announcement: {
     position: "fixed" as const,
