@@ -71,7 +71,14 @@ export default function App() {
         />
       )}
       {view.name === "create" && <TournamentForm onDone={closeToList} onCancel={closeToList} />}
-      {view.name === "edit" && <TournamentForm tournamentId={view.id} onDone={closeToList} onCancel={closeToList} />}
+      {view.name === "edit" && (
+        <TournamentForm
+          tournamentId={view.id}
+          onDone={closeToList}
+          onCancel={closeToList}
+          onStarted={(id) => setView({ name: "live", id })}
+        />
+      )}
       {view.name === "live" && (
         <LiveConsole
           tournamentId={view.id}

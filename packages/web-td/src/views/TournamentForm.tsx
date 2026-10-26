@@ -77,10 +77,13 @@ export default function TournamentForm({
   tournamentId,
   onDone,
   onCancel,
+  onStarted,
 }: {
   tournamentId?: string;
   onDone: () => void;
   onCancel: () => void;
+  /** Called after "start now" successfully checks everyone in and starts the clock. */
+  onStarted?: (id: string) => void;
 }) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [levels, setLevels] = useState<BlindLevel[]>(STANDARD_LEVELS);
@@ -105,12 +108,8 @@ export default function TournamentForm({
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-
-    const payload = {
+  function buildPayload() {
+    return {
       name: form.name,
       format: form.format,
       status: form.status,
@@ -130,14 +129,44 @@ export default function TournamentForm({
       rpsFormulaParams: { knockoutPoints: Number(form.knockoutPoints || 0) },
       blindLevels: levels,
     };
+  }
 
+  async function saveTournament(): Promise<string> {
+    const payload = buildPayload();
+    if (tournamentId) {
+      await apiPut(`/api/td/tournaments/${tournamentId}`, payload);
+      return tournamentId;
+    }
+    const { id } = await apiPost<{ id: string }>("/api/td/tournaments", payload);
+    return id;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
     try {
-      if (tournamentId) {
-        await apiPut(`/api/td/tournaments/${tournamentId}`, payload);
-      } else {
-        await apiPost("/api/td/tournaments", payload);
-      }
+      await saveTournament();
       onDone();
+    } catch (err) {
+      setError(String((err as Error).message ?? err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Skips the separate "open console → check in everyone → start" steps for
+  // when the TD just wants to get a live, in-room game going immediately —
+  // saves the form, checks in everyone already registered, and starts the
+  // clock in one click.
+  async function handleStartNow() {
+    setSaving(true);
+    setError(null);
+    try {
+      const id = await saveTournament();
+      await apiPost(`/api/td/tournaments/${id}/checkin-all`);
+      await apiPost(`/api/td/tournaments/${id}/start`);
+      onStarted?.(id);
     } catch (err) {
       setError(String((err as Error).message ?? err));
     } finally {
@@ -355,6 +384,18 @@ export default function TournamentForm({
       {!locked && (
         <button className="btn btn-primary" type="submit" disabled={saving || levels.length === 0}>
           {saving ? "Сохраняем…" : tournamentId ? "Сохранить изменения" : "Создать турнир"}
+        </button>
+      )}
+
+      {tournamentId && !locked && tournamentStatus !== "cancelled" && (
+        <button
+          className="btn btn-secondary"
+          type="button"
+          style={{ marginTop: 10 }}
+          disabled={saving || levels.length === 0}
+          onClick={handleStartNow}
+        >
+          ▶ Запустить турнир сейчас
         </button>
       )}
 
