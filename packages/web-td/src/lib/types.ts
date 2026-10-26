@@ -23,6 +23,7 @@ export interface TournamentListItem {
 
 export interface TournamentFull extends TournamentListItem {
   clubId: string;
+  maxSeatsPerTable: number;
   lateRegUntilLevel: number | null;
   reentryAllowedUntilLevel: number | null;
   reentryPrice: string | null;

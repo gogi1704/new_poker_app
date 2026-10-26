@@ -15,6 +15,7 @@ interface FormState {
   buyIn: string;
   startingStack: string;
   maxSeats: string;
+  maxSeatsPerTable: string;
   lateRegUntilLevel: string;
   reentryAllowedUntilLevel: string;
   reentryPrice: string;
@@ -34,6 +35,7 @@ const EMPTY_FORM: FormState = {
   buyIn: "1000",
   startingStack: "20000",
   maxSeats: "40",
+  maxSeatsPerTable: "9",
   lateRegUntilLevel: "",
   reentryAllowedUntilLevel: "",
   reentryPrice: "",
@@ -54,6 +56,7 @@ function toFormState(t: TournamentFull): FormState {
     buyIn: String(Number(t.buyIn)),
     startingStack: String(t.startingStack),
     maxSeats: String(t.maxSeats),
+    maxSeatsPerTable: String(t.maxSeatsPerTable),
     lateRegUntilLevel: t.lateRegUntilLevel?.toString() ?? "",
     reentryAllowedUntilLevel: t.reentryAllowedUntilLevel?.toString() ?? "",
     reentryPrice: t.reentryPrice ? String(Number(t.reentryPrice)) : "",
@@ -115,6 +118,7 @@ export default function TournamentForm({
       buyIn: Number(form.buyIn),
       startingStack: Number(form.startingStack),
       maxSeats: Number(form.maxSeats),
+      maxSeatsPerTable: Number(form.maxSeatsPerTable || 9),
       lateRegUntilLevel: numOrNull(form.lateRegUntilLevel),
       reentryAllowedUntilLevel: numOrNull(form.reentryAllowedUntilLevel),
       reentryPrice: numOrNull(form.reentryPrice),
@@ -232,6 +236,17 @@ export default function TournamentForm({
               min="2"
               value={form.maxSeats}
               onChange={(e) => set("maxSeats", e.target.value)}
+              required
+            />
+          </div>
+          <div className="field">
+            <label>Мест за столом</label>
+            <input
+              type="number"
+              min="2"
+              max="10"
+              value={form.maxSeatsPerTable}
+              onChange={(e) => set("maxSeatsPerTable", e.target.value)}
               required
             />
           </div>

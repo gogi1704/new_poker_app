@@ -99,9 +99,6 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
             <Stat value={state.counts.active} label="игроков" />
             <Stat value={state.counts.tablesActive} label="столов" />
             <Stat value={avgStack.toLocaleString("ru-RU")} label="средний стек" />
-            {state.chipLeader && (
-              <Stat value={state.chipLeader.stack.toLocaleString("ru-RU")} label={`лидер: ${state.chipLeader.nickname}`} />
-            )}
           </div>
 
           {payoutEntries.length > 0 && (

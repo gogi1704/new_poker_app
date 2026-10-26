@@ -7,7 +7,7 @@ import { getDefaultClub } from "../services/club.js";
 import { requireStaff } from "../services/staff.js";
 import { buildLiveState } from "../services/live.js";
 import { publishTournamentUpdate } from "../services/realtime.js";
-import { dealInitialSeats, rebalanceTables, firstFreeSeat, MAX_SEATS_PER_TABLE } from "../services/seating.js";
+import { dealInitialSeats, rebalanceTables, firstFreeSeat } from "../services/seating.js";
 import { computeFinalStandings, suggestPayouts } from "../services/standings.js";
 import { setAnnouncement } from "../services/announcements.js";
 
@@ -39,7 +39,12 @@ async function respond(fastify: FastifyInstance, tournamentId: string) {
  * which both need to put a player who isn't currently seated back onto the
  * floor without the TD having to pick a specific seat.
  */
-async function seatPlayerIntoActiveTable(fastify: FastifyInstance, tournamentId: string, playerId: string) {
+async function seatPlayerIntoActiveTable(
+  fastify: FastifyInstance,
+  tournamentId: string,
+  playerId: string,
+  maxSeatsPerTable: number,
+) {
   const tableRows = await fastify.db
     .select()
     .from(schema.tables)
@@ -57,10 +62,10 @@ async function seatPlayerIntoActiveTable(fastify: FastifyInstance, tournamentId:
   occupancy.sort((a, b) => a.takenSeats.size - b.takenSeats.size);
 
   let target = occupancy[0];
-  if (!target || target.takenSeats.size >= MAX_SEATS_PER_TABLE) {
+  if (!target || target.takenSeats.size >= maxSeatsPerTable) {
     const [newTable] = await fastify.db
       .insert(schema.tables)
-      .values({ tournamentId, tableNo: tableRows.length + 1, maxSeats: MAX_SEATS_PER_TABLE })
+      .values({ tournamentId, tableNo: tableRows.length + 1, maxSeats: maxSeatsPerTable })
       .returning();
     target = { table: newTable, takenSeats: new Set() };
   }
@@ -129,12 +134,12 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
       return reply.code(409).send({ error: "need at least 2 checked-in players to start" });
     }
 
-    const seats = dealInitialSeats(checkedIn.map((c) => c.playerId));
+    const seats = dealInitialSeats(checkedIn.map((c) => c.playerId), tournament.maxSeatsPerTable);
     const tableNos = [...new Set(seats.map((s) => s.tableNo))];
 
     const insertedTables = await fastify.db
       .insert(schema.tables)
-      .values(tableNos.map((tableNo) => ({ tournamentId: id, tableNo, maxSeats: MAX_SEATS_PER_TABLE })))
+      .values(tableNos.map((tableNo) => ({ tournamentId: id, tableNo, maxSeats: tournament.maxSeatsPerTable })))
       .returning();
     const tableIdByNo = new Map(insertedTables.map((t) => [t.tableNo, t.id]));
 
@@ -286,6 +291,7 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
   fastify.post("/api/td/tournaments/:id/rebalance", async (request, reply) => {
     const ctx = await requireStaffAndTournament(fastify, request, reply);
     if (!ctx) return;
+    const { tournament } = ctx;
     const { id } = request.params as { id: string };
 
     const tableRows = await fastify.db
@@ -309,7 +315,7 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
         .map((r) => ({ playerId: r.playerId, seatNo: r.seatNo ?? 0 })),
     }));
 
-    const { moves, brokenTableNos } = rebalanceTables(occupancy);
+    const { moves, brokenTableNos } = rebalanceTables(occupancy, tournament.maxSeatsPerTable);
     const tableIdByNo = new Map(tableRows.map((t) => [t.tableNo, t.id]));
 
     for (const move of moves) {
@@ -367,7 +373,7 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
         levelNumberAtPurchase: levelNumber,
       });
 
-      await seatPlayerIntoActiveTable(fastify, id, playerId);
+      await seatPlayerIntoActiveTable(fastify, id, playerId, tournament.maxSeatsPerTable);
       await fastify.db
         .update(schema.registrations)
         .set({ currentStack: tournament.startingStack })
@@ -461,6 +467,7 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
   fastify.post("/api/td/tournaments/:id/undo-knockout", async (request, reply) => {
     const ctx = await requireStaffAndTournament(fastify, request, reply);
     if (!ctx) return;
+    const { tournament } = ctx;
     const { id } = request.params as { id: string };
 
     const [lastKnockout] = await fastify.db
@@ -474,7 +481,52 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
     await fastify.db.delete(schema.knockouts).where(eq(schema.knockouts.id, lastKnockout.id));
     // The eliminated player's old seat was cleared at elimination time, so
     // there's nothing to restore to — reseat fresh, same as a re-entry.
-    await seatPlayerIntoActiveTable(fastify, id, lastKnockout.eliminatedPlayerId);
+    await seatPlayerIntoActiveTable(fastify, id, lastKnockout.eliminatedPlayerId, tournament.maxSeatsPerTable);
+
+    return respond(fastify, id);
+  });
+
+  // ---- manual table add/close ----
+
+  fastify.post("/api/td/tournaments/:id/tables/add", async (request, reply) => {
+    const ctx = await requireStaffAndTournament(fastify, request, reply);
+    if (!ctx) return;
+    const { tournament } = ctx;
+    const { id } = request.params as { id: string };
+
+    const existing = await fastify.db
+      .select({ tableNo: schema.tables.tableNo })
+      .from(schema.tables)
+      .where(eq(schema.tables.tournamentId, id));
+    const nextTableNo = existing.length > 0 ? Math.max(...existing.map((t) => t.tableNo)) + 1 : 1;
+
+    await fastify.db
+      .insert(schema.tables)
+      .values({ tournamentId: id, tableNo: nextTableNo, maxSeats: tournament.maxSeatsPerTable });
+
+    return respond(fastify, id);
+  });
+
+  fastify.post("/api/td/tournaments/:id/tables/:tableNo/close", async (request, reply) => {
+    const ctx = await requireStaffAndTournament(fastify, request, reply);
+    if (!ctx) return;
+    const { id, tableNo } = request.params as { id: string; tableNo: string };
+
+    const [table] = await fastify.db
+      .select()
+      .from(schema.tables)
+      .where(and(eq(schema.tables.tournamentId, id), eq(schema.tables.tableNo, Number(tableNo))));
+    if (!table) return reply.code(404).send({ error: "table not found" });
+
+    const [{ seated }] = await fastify.db
+      .select({ seated: sql<number>`count(*)` })
+      .from(schema.registrations)
+      .where(and(eq(schema.registrations.seatTableId, table.id), eq(schema.registrations.status, "active")));
+    if (Number(seated) > 0) {
+      return reply.code(409).send({ error: "move players out before closing this table" });
+    }
+
+    await fastify.db.update(schema.tables).set({ isActive: false }).where(eq(schema.tables.id, table.id));
 
     return respond(fastify, id);
   });

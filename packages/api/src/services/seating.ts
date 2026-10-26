@@ -1,4 +1,5 @@
-export const MAX_SEATS_PER_TABLE = 9;
+/** Fallback only — every tournament now carries its own maxSeatsPerTable (default 9). */
+export const DEFAULT_MAX_SEATS_PER_TABLE = 9;
 
 export interface SeatAssignment {
   playerId: string;
@@ -7,9 +8,9 @@ export interface SeatAssignment {
 }
 
 /** Shuffles players and deals them round-robin across the minimum number of tables. */
-export function dealInitialSeats(playerIds: string[]): SeatAssignment[] {
+export function dealInitialSeats(playerIds: string[], maxSeatsPerTable = DEFAULT_MAX_SEATS_PER_TABLE): SeatAssignment[] {
   const shuffled = [...playerIds].sort(() => Math.random() - 0.5);
-  const tableCount = Math.max(1, Math.ceil(shuffled.length / MAX_SEATS_PER_TABLE));
+  const tableCount = Math.max(1, Math.ceil(shuffled.length / maxSeatsPerTable));
   const seatCounters = new Array(tableCount).fill(0);
 
   return shuffled.map((playerId, i) => {
@@ -50,7 +51,10 @@ export function firstFreeSeat(takenSeats: Set<number>): number {
  * by an earlier elimination gets reused instead of colliding with a seat
  * that's still occupied.
  */
-export function rebalanceTables(tables: TableOccupancy[]): RebalanceResult {
+export function rebalanceTables(
+  tables: TableOccupancy[],
+  maxSeatsPerTable = DEFAULT_MAX_SEATS_PER_TABLE,
+): RebalanceResult {
   const active = tables
     .filter((t) => t.seats.length > 0)
     .map((t) => ({ tableNo: t.tableNo, takenSeats: new Set(t.seats.map((s) => s.seatNo)) }));
@@ -59,7 +63,7 @@ export function rebalanceTables(tables: TableOccupancy[]): RebalanceResult {
   const moves: RebalanceMove[] = [];
   const brokenTableNos: number[] = [];
 
-  const minTablesNeeded = Math.max(1, Math.ceil(totalPlayers / MAX_SEATS_PER_TABLE));
+  const minTablesNeeded = Math.max(1, Math.ceil(totalPlayers / maxSeatsPerTable));
   active.sort((a, b) => a.takenSeats.size - b.takenSeats.size);
 
   while (active.length > minTablesNeeded) {

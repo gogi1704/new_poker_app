@@ -1,0 +1,1 @@
+ALTER TABLE "tournaments" ADD COLUMN "max_seats_per_table" integer DEFAULT 9 NOT NULL;

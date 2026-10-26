@@ -243,21 +243,33 @@ function RunningConsole({
         <StatTile value={state.counts.fieldSize} label="Всего" />
       </div>
 
-      {state.tables.length > 1 && (
-        <button
-          className="btn btn-secondary"
-          style={{ marginBottom: 14 }}
-          disabled={busy}
-          onClick={() => onAction("/rebalance")}
-        >
-          ⚖ Сбалансировать столы
+      <div className="row" style={{ gap: 8, marginBottom: 14 }}>
+        {state.tables.length > 1 && (
+          <button className="btn btn-secondary" disabled={busy} onClick={() => onAction("/rebalance")}>
+            ⚖ Сбалансировать
+          </button>
+        )}
+        <button className="btn btn-secondary" disabled={busy} onClick={() => onAction("/tables/add")}>
+          + Добавить стол
         </button>
-      )}
+      </div>
 
       <strong className="small muted">СТОЛЫ</strong>
       {state.tables.map((table) => (
         <div className="card" key={table.tableNo} style={{ marginTop: 10, marginBottom: 14 }}>
-          <strong className="small">Стол {table.tableNo}</strong>
+          <div className="row">
+            <strong className="small">Стол {table.tableNo}</strong>
+            {table.seats.length === 0 && (
+              <button
+                className="btn btn-secondary"
+                style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}
+                disabled={busy}
+                onClick={() => onAction(`/tables/${table.tableNo}/close`)}
+              >
+                Закрыть стол
+              </button>
+            )}
+          </div>
           <div className="row-list" style={{ marginTop: 8 }}>
             {table.seats.map((seat) => (
               <SeatRow

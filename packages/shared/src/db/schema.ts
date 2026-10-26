@@ -131,6 +131,7 @@ export const tournaments = pgTable("tournaments", {
   buyIn: numeric("buy_in", { precision: 10, scale: 2 }).notNull(),
   startingStack: integer("starting_stack").notNull(),
   maxSeats: integer("max_seats").notNull(),
+  maxSeatsPerTable: integer("max_seats_per_table").notNull().default(9),
 
   lateRegUntilLevel: integer("late_reg_until_level"),
   reentryAllowedUntilLevel: integer("reentry_allowed_until_level"),

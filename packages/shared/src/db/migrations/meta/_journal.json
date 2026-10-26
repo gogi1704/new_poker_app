@@ -15,6 +15,13 @@
       "when": 1793019664792,
       "tag": "0001_broad_lady_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793022922805,
+      "tag": "0002_striped_true_believers",
+      "breakpoints": true
     }
   ]
 }
