@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import type { BlindLevel } from "../lib/types.js";
 import { STANDARD_LEVELS } from "../lib/standardLevels.js";
 
@@ -108,7 +109,7 @@ export default function BlindLevelsEditor({
                 </td>
                 <td>
                   <button className="icon-btn" type="button" onClick={() => removeLevel(i)}>
-                    ✕
+                    <X size={14} />
                   </button>
                 </td>
               </tr>

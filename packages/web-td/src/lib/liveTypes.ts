@@ -14,6 +14,7 @@ export interface LiveSeat {
   playerId: string;
   nickname: string;
   avatarUrl: string | null;
+  currentStack: number | null;
 }
 
 export interface LiveTable {
@@ -35,6 +36,17 @@ export interface CheckinEntry {
   playerId: string;
   nickname: string;
   status: "registered" | "checked_in";
+}
+
+export interface ChipLeader {
+  playerId: string;
+  nickname: string;
+  stack: number;
+}
+
+export interface BoardAnnouncement {
+  text: string;
+  expiresAt: string;
 }
 
 export interface LiveState {
@@ -62,4 +74,8 @@ export interface LiveState {
   tables: LiveTable[];
   eliminations: LiveElimination[];
   checkinList: CheckinEntry[];
+  chipLeader: ChipLeader | null;
+  /** place -> amount; JSON round-trips object keys as strings. */
+  payoutPreview: Record<string, number>;
+  announcement: BoardAnnouncement | null;
 }

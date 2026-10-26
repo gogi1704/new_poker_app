@@ -1,9 +1,13 @@
-import { useState } from "react";
-import { apiPost } from "../lib/api.js";
+import { useEffect, useState } from "react";
+import { apiGet, apiPost } from "../lib/api.js";
 import { useLiveState } from "../lib/useLiveState.js";
 import { useTickingElapsed } from "../lib/useTickingElapsed.js";
 import { formatMMSS, initials } from "../lib/format.js";
-import type { LiveState } from "../lib/liveTypes.js";
+import { confirmDialog } from "../lib/telegram.js";
+import QrScanner from "../components/QrScanner.js";
+import { X, Tv } from "lucide-react";
+import type { LiveState, LiveSeat, LiveTable } from "../lib/liveTypes.js";
+import type { BlindLevel } from "../lib/types.js";
 
 export default function LiveConsole({
   tournamentId,
@@ -48,11 +52,12 @@ export default function LiveConsole({
               style={{ width: "auto", padding: "6px 12px", fontSize: 12 }}
               onClick={() => window.open(`/clock/${tournamentId}`, "_blank")}
             >
-              📺 Табло
+              <Tv size={14} style={{ marginRight: 4, verticalAlign: -2 }} />
+              Табло
             </button>
           )}
           <button className="btn btn-secondary" style={{ width: "auto", padding: "6px 12px" }} onClick={onClose}>
-            ✕
+            <X size={16} />
           </button>
         </div>
       </div>
@@ -87,8 +92,23 @@ function CheckinPanel({
   busy: boolean;
   onAction: (path: string, body?: unknown) => Promise<void>;
 }) {
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  async function handleScan(token: string) {
+    setScanning(false);
+    setScanError(null);
+    try {
+      await onAction("/checkin-by-qr", { token });
+    } catch (err) {
+      setScanError(String((err as Error).message ?? err));
+    }
+  }
+
   return (
     <>
+      {scanning && <QrScanner onScan={handleScan} onClose={() => setScanning(false)} />}
+
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="row small muted">
           <span>Зарегистрировано: {state.checkinList.length}</span>
@@ -96,14 +116,20 @@ function CheckinPanel({
         </div>
       </div>
 
-      <button
-        className="btn btn-secondary"
-        style={{ marginBottom: 14 }}
-        disabled={busy}
-        onClick={() => onAction("/checkin-all")}
-      >
-        ✓ Отметить всех
-      </button>
+      {scanError && (
+        <div className="small" style={{ color: "var(--danger)", marginBottom: 10 }}>
+          {scanError}
+        </div>
+      )}
+
+      <div className="row" style={{ gap: 8, marginBottom: 14 }}>
+        <button className="btn btn-secondary" disabled={busy} onClick={() => onAction("/checkin-all")}>
+          ✓ Отметить всех
+        </button>
+        <button className="btn btn-primary" disabled={busy} onClick={() => setScanning(true)}>
+          📷 Сканировать QR
+        </button>
+      </div>
 
       <div className="row-list" style={{ marginBottom: 14 }}>
         {state.checkinList.map((p) => (
@@ -149,6 +175,14 @@ function RunningConsole({
 
   const level = state.clock?.level;
   const remaining = level ? level.durationMinutes * 60 - elapsed : 0;
+
+  async function handleUndoKnockout() {
+    // eliminations is newest-first (see live.ts), so index 0 is the most recent.
+    const last = state.eliminations[0];
+    if (!last) return;
+    const ok = await confirmDialog(`Отменить нокаут игрока ${last.nickname}? Он вернётся в игру.`);
+    if (ok) await onAction("/undo-knockout");
+  }
 
   return (
     <>
@@ -200,6 +234,8 @@ function RunningConsole({
         </div>
       </div>
 
+      <LevelJumpAndAnnounce tournamentId={state.tournament.id} busy={busy} onAction={onAction} />
+
       <div className="stat-grid" style={{ marginBottom: 14 }}>
         <StatTile value={state.counts.active} label="Активных" />
         <StatTile value={state.counts.eliminated} label="Выбыло" />
@@ -224,49 +260,16 @@ function RunningConsole({
           <strong className="small">Стол {table.tableNo}</strong>
           <div className="row-list" style={{ marginTop: 8 }}>
             {table.seats.map((seat) => (
-              <div className="row-item" key={seat.playerId}>
-                <div className="row" style={{ gap: 8 }}>
-                  <span className="small muted">#{seat.seatNo}</span>
-                  <span>{initials(seat.nickname)}</span>
-                  <span>{seat.nickname}</span>
-                </div>
-                <div className="row" style={{ gap: 6 }}>
-                  <select
-                    value={eliminator[seat.playerId] ?? ""}
-                    onChange={(e) => setEliminator((m) => ({ ...m, [seat.playerId]: e.target.value }))}
-                    style={{
-                      fontSize: 11,
-                      padding: "4px 6px",
-                      borderRadius: 6,
-                      background: "var(--card-2)",
-                      border: "1px solid var(--border)",
-                      color: "var(--text)",
-                    }}
-                  >
-                    <option value="">кто выбил?</option>
-                    {allActive
-                      .filter((p) => p.playerId !== seat.playerId)
-                      .map((p) => (
-                        <option key={p.playerId} value={p.playerId}>
-                          {p.nickname}
-                        </option>
-                      ))}
-                  </select>
-                  <button
-                    className="btn btn-danger"
-                    style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}
-                    disabled={busy}
-                    onClick={() =>
-                      onAction("/knockout", {
-                        eliminatedPlayerId: seat.playerId,
-                        eliminatedByPlayerId: eliminator[seat.playerId] || null,
-                      })
-                    }
-                  >
-                    💀
-                  </button>
-                </div>
-              </div>
+              <SeatRow
+                key={seat.playerId}
+                seat={seat}
+                tables={state.tables}
+                eliminator={eliminator[seat.playerId] ?? ""}
+                onEliminatorChange={(v) => setEliminator((m) => ({ ...m, [seat.playerId]: v }))}
+                eliminatorOptions={allActive.filter((p) => p.playerId !== seat.playerId)}
+                busy={busy}
+                onAction={onAction}
+              />
             ))}
           </div>
         </div>
@@ -281,7 +284,19 @@ function RunningConsole({
         </>
       )}
 
-      <strong className="small muted">ВЫБЫВШИЕ ({state.eliminations.length})</strong>
+      <div className="row" style={{ marginBottom: 6 }}>
+        <strong className="small muted">ВЫБЫВШИЕ ({state.eliminations.length})</strong>
+        {state.eliminations.length > 0 && (
+          <button
+            className="btn btn-secondary"
+            style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}
+            disabled={busy}
+            onClick={handleUndoKnockout}
+          >
+            ↩️ Отменить последний
+          </button>
+        )}
+      </div>
       <div className="row-list" style={{ marginTop: 10 }}>
         {state.eliminations.map((e) => (
           <div className="row-item" key={`${e.playerId}-${e.at}`}>
@@ -296,6 +311,202 @@ function RunningConsole({
     </>
   );
 }
+
+function LevelJumpAndAnnounce({
+  tournamentId,
+  busy,
+  onAction,
+}: {
+  tournamentId: string;
+  busy: boolean;
+  onAction: (path: string, body?: unknown) => Promise<void>;
+}) {
+  const [levels, setLevels] = useState<BlindLevel[]>([]);
+  const [levelNumber, setLevelNumber] = useState("");
+  const [announceText, setAnnounceText] = useState("");
+
+  useEffect(() => {
+    apiGet<{ blindLevels: BlindLevel[] }>(`/api/td/tournaments/${tournamentId}`).then((t) =>
+      setLevels(t.blindLevels),
+    );
+  }, [tournamentId]);
+
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="row" style={{ gap: 8, marginBottom: 10 }}>
+        <select
+          value={levelNumber}
+          onChange={(e) => setLevelNumber(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="">Перейти на уровень…</option>
+          {levels.map((l) => (
+            <option key={l.levelNumber} value={l.levelNumber}>
+              Ур. {l.levelNumber} {l.isBreak ? "(перерыв)" : `${l.smallBlind}/${l.bigBlind}`}
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn btn-secondary"
+          style={{ width: "auto", fontSize: 12 }}
+          disabled={busy || !levelNumber}
+          onClick={() => onAction("/clock/level", { levelNumber: Number(levelNumber) })}
+        >
+          Перейти
+        </button>
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        <input
+          value={announceText}
+          onChange={(e) => setAnnounceText(e.target.value)}
+          placeholder="Объявление на табло…"
+          style={{ ...selectStyle, flex: 1 }}
+        />
+        <button
+          className="btn btn-primary"
+          style={{ width: "auto", fontSize: 12 }}
+          disabled={busy || !announceText.trim()}
+          onClick={() => {
+            onAction("/announce", { text: announceText.trim() });
+            setAnnounceText("");
+          }}
+        >
+          📢 Отправить
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const selectStyle = {
+  padding: "8px 10px",
+  borderRadius: 8,
+  background: "var(--card-2)",
+  border: "1px solid var(--border)",
+  color: "var(--text)",
+  fontSize: 13,
+};
+
+function SeatRow({
+  seat,
+  tables,
+  eliminator,
+  onEliminatorChange,
+  eliminatorOptions,
+  busy,
+  onAction,
+}: {
+  seat: LiveSeat;
+  tables: LiveTable[];
+  eliminator: string;
+  onEliminatorChange: (v: string) => void;
+  eliminatorOptions: { playerId: string; nickname: string }[];
+  busy: boolean;
+  onAction: (path: string, body?: unknown) => Promise<void>;
+}) {
+  const [stackInput, setStackInput] = useState(String(seat.currentStack ?? ""));
+  const [moving, setMoving] = useState(false);
+  const [target, setTarget] = useState("");
+
+  useEffect(() => setStackInput(String(seat.currentStack ?? "")), [seat.currentStack]);
+
+  function commitStack() {
+    const value = Number(stackInput);
+    if (!Number.isFinite(value) || value === seat.currentStack) return;
+    onAction("/stack", { playerId: seat.playerId, currentStack: Math.max(0, Math.round(value)) });
+  }
+
+  const freeSeats = tables.flatMap((t) =>
+    Array.from({ length: t.maxSeats }, (_, i) => i + 1)
+      .filter((n) => n === seat.seatNo || !t.seats.some((s) => s.seatNo === n))
+      .map((n) => ({ tableNo: t.tableNo, seatNo: n })),
+  );
+
+  return (
+    <div className="row-item" style={{ flexWrap: "wrap" }}>
+      <div className="row" style={{ gap: 8, flex: 1, minWidth: 160 }}>
+        <span className="small muted">#{seat.seatNo}</span>
+        <span>{initials(seat.nickname)}</span>
+        <span>{seat.nickname}</span>
+      </div>
+
+      <div className="row" style={{ gap: 6, width: "auto" }}>
+        <input
+          value={stackInput}
+          onChange={(e) => setStackInput(e.target.value)}
+          onBlur={commitStack}
+          onKeyDown={(e) => e.key === "Enter" && commitStack()}
+          inputMode="numeric"
+          title="Текущий стек"
+          style={{ ...seatInputStyle, width: 70 }}
+        />
+        <button
+          className="btn btn-secondary"
+          style={{ width: "auto", padding: "4px 8px", fontSize: 11 }}
+          disabled={busy}
+          onClick={() => setMoving((v) => !v)}
+        >
+          ↔
+        </button>
+        <select
+          value={eliminator}
+          onChange={(e) => onEliminatorChange(e.target.value)}
+          style={seatInputStyle}
+        >
+          <option value="">кто выбил?</option>
+          {eliminatorOptions.map((p) => (
+            <option key={p.playerId} value={p.playerId}>
+              {p.nickname}
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn btn-danger"
+          style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}
+          disabled={busy}
+          onClick={() => onAction("/knockout", { eliminatedPlayerId: seat.playerId, eliminatedByPlayerId: eliminator || null })}
+        >
+          💀
+        </button>
+      </div>
+
+      {moving && (
+        <div className="row" style={{ gap: 6, width: "100%", marginTop: 6 }}>
+          <select value={target} onChange={(e) => setTarget(e.target.value)} style={{ ...seatInputStyle, flex: 1 }}>
+            <option value="">Куда пересадить?</option>
+            {freeSeats.map((f) => (
+              <option key={`${f.tableNo}-${f.seatNo}`} value={`${f.tableNo}-${f.seatNo}`}>
+                Стол {f.tableNo}, место {f.seatNo}
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn btn-primary"
+            style={{ width: "auto", fontSize: 11 }}
+            disabled={busy || !target}
+            onClick={() => {
+              const [tableNo, seatNo] = target.split("-").map(Number);
+              onAction("/move-seat", { playerId: seat.playerId, tableNo, seatNo });
+              setMoving(false);
+              setTarget("");
+            }}
+          >
+            Пересадить
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const seatInputStyle = {
+  fontSize: 11,
+  padding: "4px 6px",
+  borderRadius: 6,
+  background: "var(--card-2)",
+  border: "1px solid var(--border)",
+  color: "var(--text)",
+};
 
 function RebuyForm({
   state,

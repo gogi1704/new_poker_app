@@ -37,7 +37,7 @@ export interface RebalanceResult {
   brokenTableNos: number[];
 }
 
-function firstFreeSeat(takenSeats: Set<number>): number {
+export function firstFreeSeat(takenSeats: Set<number>): number {
   let seatNo = 1;
   while (takenSeats.has(seatNo)) seatNo += 1;
   return seatNo;

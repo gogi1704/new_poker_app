@@ -1,13 +1,15 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 import { schema } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { requireStaff } from "../services/staff.js";
 import { buildLiveState } from "../services/live.js";
 import { publishTournamentUpdate } from "../services/realtime.js";
-import { dealInitialSeats, rebalanceTables, MAX_SEATS_PER_TABLE } from "../services/seating.js";
+import { dealInitialSeats, rebalanceTables, firstFreeSeat, MAX_SEATS_PER_TABLE } from "../services/seating.js";
 import { computeFinalStandings, suggestPayouts } from "../services/standings.js";
+import { setAnnouncement } from "../services/announcements.js";
 
 async function requireStaffAndTournament(fastify: FastifyInstance, request: FastifyRequest, reply: FastifyReply) {
   const club = await getDefaultClub(fastify.db);
@@ -29,6 +31,45 @@ async function requireStaffAndTournament(fastify: FastifyInstance, request: Fast
 async function respond(fastify: FastifyInstance, tournamentId: string) {
   publishTournamentUpdate(tournamentId);
   return buildLiveState(fastify.db, tournamentId);
+}
+
+/**
+ * Seats a player at the least-full active table, creating a new one if every
+ * active table is full. Shared by re-entry (rebuy handler) and undo-knockout,
+ * which both need to put a player who isn't currently seated back onto the
+ * floor without the TD having to pick a specific seat.
+ */
+async function seatPlayerIntoActiveTable(fastify: FastifyInstance, tournamentId: string, playerId: string) {
+  const tableRows = await fastify.db
+    .select()
+    .from(schema.tables)
+    .where(and(eq(schema.tables.tournamentId, tournamentId), eq(schema.tables.isActive, true)));
+
+  const occupancy = await Promise.all(
+    tableRows.map(async (t) => {
+      const seated = await fastify.db
+        .select({ seatNo: schema.registrations.seatNo })
+        .from(schema.registrations)
+        .where(and(eq(schema.registrations.seatTableId, t.id), eq(schema.registrations.status, "active")));
+      return { table: t, takenSeats: new Set(seated.map((s) => s.seatNo).filter((n): n is number => n != null)) };
+    }),
+  );
+  occupancy.sort((a, b) => a.takenSeats.size - b.takenSeats.size);
+
+  let target = occupancy[0];
+  if (!target || target.takenSeats.size >= MAX_SEATS_PER_TABLE) {
+    const [newTable] = await fastify.db
+      .insert(schema.tables)
+      .values({ tournamentId, tableNo: tableRows.length + 1, maxSeats: MAX_SEATS_PER_TABLE })
+      .returning();
+    target = { table: newTable, takenSeats: new Set() };
+  }
+
+  const seatNo = firstFreeSeat(target.takenSeats);
+  await fastify.db
+    .update(schema.registrations)
+    .set({ status: "active", seatTableId: target.table.id, seatNo })
+    .where(and(eq(schema.registrations.tournamentId, tournamentId), eq(schema.registrations.playerId, playerId)));
 }
 
 export default async function tdLiveRoutes(fastify: FastifyInstance) {
@@ -100,7 +141,12 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
     for (const seat of seats) {
       await fastify.db
         .update(schema.registrations)
-        .set({ status: "active", seatTableId: tableIdByNo.get(seat.tableNo), seatNo: seat.seatNo })
+        .set({
+          status: "active",
+          seatTableId: tableIdByNo.get(seat.tableNo),
+          seatNo: seat.seatNo,
+          currentStack: tournament.startingStack,
+        })
         .where(and(eq(schema.registrations.tournamentId, id), eq(schema.registrations.playerId, seat.playerId)));
     }
 
@@ -157,7 +203,12 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
     const ctx = await requireStaffAndTournament(fastify, request, reply);
     if (!ctx) return;
     const { id } = request.params as { id: string };
-    const { direction } = z.object({ direction: z.enum(["next", "prev"]) }).parse(request.body);
+    const body = z
+      .union([
+        z.object({ direction: z.enum(["next", "prev"]) }),
+        z.object({ levelNumber: z.number().int().min(1) }),
+      ])
+      .parse(request.body);
 
     const [clock] = await fastify.db
       .select()
@@ -165,7 +216,10 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
       .where(eq(schema.tournamentClockState.tournamentId, id));
     if (!clock) return reply.code(409).send({ error: "tournament has not started" });
 
-    const nextLevel = Math.max(1, clock.currentLevelNumber + (direction === "next" ? 1 : -1));
+    const nextLevel =
+      "levelNumber" in body
+        ? body.levelNumber
+        : Math.max(1, clock.currentLevelNumber + (body.direction === "next" ? 1 : -1));
     await fastify.db
       .update(schema.tournamentClockState)
       .set({ currentLevelNumber: nextLevel, levelStartedAt: new Date(), pausedAt: null, elapsedPauseSeconds: 0 })
@@ -313,53 +367,167 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
         levelNumberAtPurchase: levelNumber,
       });
 
-      const tableRows = await fastify.db
-        .select()
-        .from(schema.tables)
-        .where(and(eq(schema.tables.tournamentId, id), eq(schema.tables.isActive, true)));
-      // Track occupied seat *numbers*, not just a count — after an elimination
-      // leaves a gap (e.g. seat 3 frees up while 1,2,4,5 stay taken), "count+1"
-      // would pick an already-occupied seat instead of reusing the gap.
-      const occupancy = await Promise.all(
-        tableRows.map(async (t) => {
-          const seated = await fastify.db
-            .select({ seatNo: schema.registrations.seatNo })
-            .from(schema.registrations)
-            .where(and(eq(schema.registrations.seatTableId, t.id), eq(schema.registrations.status, "active")));
-          const takenSeats = new Set(seated.map((s) => s.seatNo));
-          return { table: t, takenSeats };
-        }),
-      );
-      occupancy.sort((a, b) => a.takenSeats.size - b.takenSeats.size);
-      let target = occupancy[0];
-      if (!target || target.takenSeats.size >= MAX_SEATS_PER_TABLE) {
-        const [newTable] = await fastify.db
-          .insert(schema.tables)
-          .values({ tournamentId: id, tableNo: tableRows.length + 1, maxSeats: MAX_SEATS_PER_TABLE })
-          .returning();
-        target = { table: newTable, takenSeats: new Set() };
-      }
-
-      let seatNo = 1;
-      while (target.takenSeats.has(seatNo)) seatNo += 1;
-
+      await seatPlayerIntoActiveTable(fastify, id, playerId);
       await fastify.db
         .update(schema.registrations)
-        .set({ status: "active", seatTableId: target.table.id, seatNo })
+        .set({ currentStack: tournament.startingStack })
         .where(eq(schema.registrations.id, reg.id));
     } else {
       if (reg.status !== "active") {
         return reply.code(409).send({ error: "only an active player can take an add-on" });
       }
+      const addonStack = tournament.addonStack ?? 0;
       await fastify.db.insert(schema.rebuyAddonTransactions).values({
         tournamentId: id,
         playerId,
         type: "addon",
         amount: tournament.addonPrice ?? "0",
-        stackGranted: tournament.addonStack ?? 0,
+        stackGranted: addonStack,
         levelNumberAtPurchase: levelNumber,
       });
+      await fastify.db
+        .update(schema.registrations)
+        .set({ currentStack: sql`coalesce(${schema.registrations.currentStack}, 0) + ${addonStack}` })
+        .where(eq(schema.registrations.id, reg.id));
     }
+
+    return respond(fastify, id);
+  });
+
+  // ---- manual stack correction (TD walks the room, counts chips) ----
+
+  fastify.post("/api/td/tournaments/:id/stack", async (request, reply) => {
+    const ctx = await requireStaffAndTournament(fastify, request, reply);
+    if (!ctx) return;
+    const { id } = request.params as { id: string };
+    const { playerId, currentStack } = z
+      .object({ playerId: z.string().uuid(), currentStack: z.number().int().min(0) })
+      .parse(request.body);
+
+    await fastify.db
+      .update(schema.registrations)
+      .set({ currentStack })
+      .where(and(eq(schema.registrations.tournamentId, id), eq(schema.registrations.playerId, playerId)));
+
+    return respond(fastify, id);
+  });
+
+  // ---- manual seat move (player asked to move, TD override) ----
+
+  fastify.post("/api/td/tournaments/:id/move-seat", async (request, reply) => {
+    const ctx = await requireStaffAndTournament(fastify, request, reply);
+    if (!ctx) return;
+    const { id } = request.params as { id: string };
+    const { playerId, tableNo, seatNo } = z
+      .object({ playerId: z.string().uuid(), tableNo: z.number().int(), seatNo: z.number().int().min(1) })
+      .parse(request.body);
+
+    const [table] = await fastify.db
+      .select()
+      .from(schema.tables)
+      .where(and(eq(schema.tables.tournamentId, id), eq(schema.tables.tableNo, tableNo), eq(schema.tables.isActive, true)));
+    if (!table) return reply.code(404).send({ error: "table not found" });
+
+    const [occupant] = await fastify.db
+      .select({ playerId: schema.registrations.playerId })
+      .from(schema.registrations)
+      .where(
+        and(
+          eq(schema.registrations.seatTableId, table.id),
+          eq(schema.registrations.seatNo, seatNo),
+          eq(schema.registrations.status, "active"),
+        ),
+      );
+    if (occupant && occupant.playerId !== playerId) {
+      return reply.code(409).send({ error: "seat is occupied" });
+    }
+
+    await fastify.db
+      .update(schema.registrations)
+      .set({ seatTableId: table.id, seatNo })
+      .where(
+        and(
+          eq(schema.registrations.tournamentId, id),
+          eq(schema.registrations.playerId, playerId),
+          eq(schema.registrations.status, "active"),
+        ),
+      );
+
+    return respond(fastify, id);
+  });
+
+  // ---- undo last knockout (TD mis-clicked / it wasn't a real elimination) ----
+
+  fastify.post("/api/td/tournaments/:id/undo-knockout", async (request, reply) => {
+    const ctx = await requireStaffAndTournament(fastify, request, reply);
+    if (!ctx) return;
+    const { id } = request.params as { id: string };
+
+    const [lastKnockout] = await fastify.db
+      .select()
+      .from(schema.knockouts)
+      .where(eq(schema.knockouts.tournamentId, id))
+      .orderBy(desc(schema.knockouts.createdAt))
+      .limit(1);
+    if (!lastKnockout) return reply.code(409).send({ error: "no knockout to undo" });
+
+    await fastify.db.delete(schema.knockouts).where(eq(schema.knockouts.id, lastKnockout.id));
+    // The eliminated player's old seat was cleared at elimination time, so
+    // there's nothing to restore to — reseat fresh, same as a re-entry.
+    await seatPlayerIntoActiveTable(fastify, id, lastKnockout.eliminatedPlayerId);
+
+    return respond(fastify, id);
+  });
+
+  // ---- push a transient announcement to the public board ----
+
+  fastify.post("/api/td/tournaments/:id/announce", async (request, reply) => {
+    const ctx = await requireStaffAndTournament(fastify, request, reply);
+    if (!ctx) return;
+    const { id } = request.params as { id: string };
+    const { text, durationSeconds } = z
+      .object({ text: z.string().min(1).max(200), durationSeconds: z.number().int().min(5).max(600).default(60) })
+      .parse(request.body);
+
+    setAnnouncement(id, text, durationSeconds);
+
+    return respond(fastify, id);
+  });
+
+  // ---- QR check-in: player's "My QR" scanned by TD ----
+
+  fastify.post("/api/td/tournaments/:id/checkin-by-qr", async (request, reply) => {
+    const ctx = await requireStaffAndTournament(fastify, request, reply);
+    if (!ctx) return;
+    const { id } = request.params as { id: string };
+    const { token } = z.object({ token: z.string().min(1) }).parse(request.body);
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) return reply.code(500).send({ error: "server misconfigured" });
+
+    let payload: { playerId: string; purpose: string };
+    try {
+      payload = jwt.verify(token, jwtSecret) as typeof payload;
+    } catch {
+      return reply.code(400).send({ error: "invalid or expired QR code" });
+    }
+    if (payload.purpose !== "checkin") {
+      return reply.code(400).send({ error: "invalid QR code" });
+    }
+
+    const [reg] = await fastify.db
+      .select()
+      .from(schema.registrations)
+      .where(and(eq(schema.registrations.tournamentId, id), eq(schema.registrations.playerId, payload.playerId)));
+    if (!reg) return reply.code(404).send({ error: "player is not registered for this tournament" });
+    if (reg.status !== "registered" && reg.status !== "checked_in") {
+      return reply.code(409).send({ error: `player is already ${reg.status}` });
+    }
+
+    await fastify.db
+      .update(schema.registrations)
+      .set({ status: "checked_in" })
+      .where(eq(schema.registrations.id, reg.id));
 
     return respond(fastify, id);
   });

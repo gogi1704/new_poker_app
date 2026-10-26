@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Settings } from "lucide-react";
 import { authenticate, setToken, apiGet } from "./lib/api.js";
 import TournamentList from "./views/TournamentList.js";
 import TournamentForm from "./views/TournamentForm.js";
@@ -54,7 +55,9 @@ export default function App() {
     <>
       <div className="header">
         <div>
-          <div className="title">🛠 {auth.club.name}</div>
+          <div className="title row" style={{ gap: 8, width: "auto" }}>
+            <Settings size={18} /> {auth.club.name}
+          </div>
           <div className="sub">TD-панель · роль: {auth.role}</div>
         </div>
       </div>

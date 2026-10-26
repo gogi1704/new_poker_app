@@ -204,6 +204,7 @@ export const registrations = pgTable(
       onDelete: "set null",
     }),
     seatNo: integer("seat_no"),
+    currentStack: integer("current_stack"),
     arrivedBeforeLateReg: boolean("arrived_before_late_reg").notNull().default(false),
     registeredAt: timestamp("registered_at", { withTimezone: true }).notNull().defaultNow(),
   },

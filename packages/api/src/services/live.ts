@@ -1,56 +1,65 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { schema, type Database } from "@poker/shared";
 import { computeClock } from "./clock.js";
+import { suggestPayouts } from "./standings.js";
+import { getAnnouncement } from "./announcements.js";
 
 export async function buildLiveState(db: Database, tournamentId: string) {
-  // These six queries are independent of each other, and each round-trip to a
+  // These queries are independent of each other, and each round-trip to a
   // remote Postgres (Neon) costs real latency — running them sequentially made
   // the first SSE push take 4-5s. Firing them concurrently cuts that to the
   // slowest single query instead of the sum of all of them.
-  const [tournament, blindLevels, clockRow, registrations, tableRows, knockoutRows] = await Promise.all([
-    db
-      .select()
-      .from(schema.tournaments)
-      .where(eq(schema.tournaments.id, tournamentId))
-      .then((rows) => rows[0]),
-    db
-      .select()
-      .from(schema.blindLevels)
-      .where(eq(schema.blindLevels.tournamentId, tournamentId))
-      .orderBy(asc(schema.blindLevels.levelNumber)),
-    db
-      .select()
-      .from(schema.tournamentClockState)
-      .where(eq(schema.tournamentClockState.tournamentId, tournamentId))
-      .then((rows) => rows[0]),
-    db
-      .select({
-        playerId: schema.registrations.playerId,
-        status: schema.registrations.status,
-        seatTableId: schema.registrations.seatTableId,
-        seatNo: schema.registrations.seatNo,
-        nickname: schema.players.nickname,
-        avatarUrl: schema.players.avatarUrl,
-      })
-      .from(schema.registrations)
-      .innerJoin(schema.players, eq(schema.players.id, schema.registrations.playerId))
-      .where(eq(schema.registrations.tournamentId, tournamentId)),
-    db
-      .select()
-      .from(schema.tables)
-      .where(and(eq(schema.tables.tournamentId, tournamentId), eq(schema.tables.isActive, true)))
-      .orderBy(asc(schema.tables.tableNo)),
-    db
-      .select({
-        eliminatedPlayerId: schema.knockouts.eliminatedPlayerId,
-        eliminatedByPlayerId: schema.knockouts.eliminatedByPlayerId,
-        levelNumber: schema.knockouts.levelNumber,
-        createdAt: schema.knockouts.createdAt,
-      })
-      .from(schema.knockouts)
-      .where(eq(schema.knockouts.tournamentId, tournamentId))
-      .orderBy(asc(schema.knockouts.createdAt)),
-  ]);
+  const [tournament, blindLevels, clockRow, registrations, tableRows, knockoutRows, rebuyTotalRow] =
+    await Promise.all([
+      db
+        .select()
+        .from(schema.tournaments)
+        .where(eq(schema.tournaments.id, tournamentId))
+        .then((rows) => rows[0]),
+      db
+        .select()
+        .from(schema.blindLevels)
+        .where(eq(schema.blindLevels.tournamentId, tournamentId))
+        .orderBy(asc(schema.blindLevels.levelNumber)),
+      db
+        .select()
+        .from(schema.tournamentClockState)
+        .where(eq(schema.tournamentClockState.tournamentId, tournamentId))
+        .then((rows) => rows[0]),
+      db
+        .select({
+          playerId: schema.registrations.playerId,
+          status: schema.registrations.status,
+          seatTableId: schema.registrations.seatTableId,
+          seatNo: schema.registrations.seatNo,
+          currentStack: schema.registrations.currentStack,
+          nickname: schema.players.nickname,
+          avatarUrl: schema.players.avatarUrl,
+        })
+        .from(schema.registrations)
+        .innerJoin(schema.players, eq(schema.players.id, schema.registrations.playerId))
+        .where(eq(schema.registrations.tournamentId, tournamentId)),
+      db
+        .select()
+        .from(schema.tables)
+        .where(and(eq(schema.tables.tournamentId, tournamentId), eq(schema.tables.isActive, true)))
+        .orderBy(asc(schema.tables.tableNo)),
+      db
+        .select({
+          eliminatedPlayerId: schema.knockouts.eliminatedPlayerId,
+          eliminatedByPlayerId: schema.knockouts.eliminatedByPlayerId,
+          levelNumber: schema.knockouts.levelNumber,
+          createdAt: schema.knockouts.createdAt,
+        })
+        .from(schema.knockouts)
+        .where(eq(schema.knockouts.tournamentId, tournamentId))
+        .orderBy(asc(schema.knockouts.createdAt)),
+      db
+        .select({ total: sql<string>`coalesce(sum(${schema.rebuyAddonTransactions.amount}), 0)` })
+        .from(schema.rebuyAddonTransactions)
+        .where(eq(schema.rebuyAddonTransactions.tournamentId, tournamentId))
+        .then((rows) => rows[0]),
+    ]);
 
   if (!tournament) return null;
 
@@ -67,7 +76,13 @@ export async function buildLiveState(db: Database, tournamentId: string) {
     maxSeats: t.maxSeats,
     seats: registrations
       .filter((r) => r.seatTableId === t.id && r.status === "active")
-      .map((r) => ({ seatNo: r.seatNo, playerId: r.playerId, nickname: r.nickname, avatarUrl: r.avatarUrl }))
+      .map((r) => ({
+        seatNo: r.seatNo,
+        playerId: r.playerId,
+        nickname: r.nickname,
+        avatarUrl: r.avatarUrl,
+        currentStack: r.currentStack,
+      }))
       .sort((a, b) => (a.seatNo ?? 0) - (b.seatNo ?? 0)),
   }));
 
@@ -90,6 +105,20 @@ export async function buildLiveState(db: Database, tournamentId: string) {
     .filter((r) => r.status === "registered" || r.status === "checked_in")
     .map((r) => ({ playerId: r.playerId, nickname: r.nickname, status: r.status }));
 
+  const activeWithStacks = registrations.filter((r) => r.status === "active" && r.currentStack != null);
+  const chipLeader = activeWithStacks.length
+    ? activeWithStacks.reduce((best, r) => (r.currentStack! > best.currentStack! ? r : best))
+    : null;
+
+  // Live preview only — not the final payout (computed separately once the
+  // tournament actually ends, by computeFinalStandings/suggestPayouts in
+  // standings.ts). The frontend must show this per-place, never as a single
+  // total: the club's tournaments aren't played for money, so no aggregate
+  // "pool" figure belongs on the public board.
+  const rebuyTotal = Number(rebuyTotalRow?.total ?? 0);
+  const prizePool = fieldSize * Number(tournament.buyIn) + rebuyTotal;
+  const payoutPreview = fieldSize > 0 ? suggestPayouts({ fieldSize, prizePool, rows: [] }) : {};
+
   return {
     tournament: {
       id: tournament.id,
@@ -109,6 +138,9 @@ export async function buildLiveState(db: Database, tournamentId: string) {
     tables,
     eliminations: eliminations.reverse(),
     checkinList,
+    chipLeader: chipLeader ? { playerId: chipLeader.playerId, nickname: chipLeader.nickname, stack: chipLeader.currentStack! } : null,
+    payoutPreview,
+    announcement: getAnnouncement(tournamentId),
   };
 }
 

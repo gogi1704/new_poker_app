@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "../lib/api.js";
 import { confirmDialog } from "../lib/telegram.js";
 import type { BlindLevel, TournamentFull } from "../lib/types.js";
@@ -164,7 +165,7 @@ export default function TournamentForm({
       <div className="row" style={{ marginBottom: 14 }}>
         <strong>{tournamentId ? "Редактировать турнир" : "Новый турнир"}</strong>
         <button className="btn btn-secondary" style={{ width: "auto", padding: "6px 12px" }} type="button" onClick={onCancel}>
-          ✕
+          <X size={16} />
         </button>
       </div>
 

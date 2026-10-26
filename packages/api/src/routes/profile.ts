@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { and, asc, eq, ne } from "drizzle-orm";
+import jwt from "jsonwebtoken";
 import { schema, computeRankProgress, computeAchievementProgress } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { getPlayerClubStats, computeStreak } from "../services/stats.js";
@@ -89,5 +90,18 @@ export default async function profileRoutes(fastify: FastifyInstance) {
       .where(eq(schema.players.id, playerId));
 
     return { deleted: true };
+  });
+
+  // Short-lived, purpose-specific token for the player's "my QR" check-in
+  // code — deliberately separate from the long-lived session JWT (auth.ts)
+  // so a screenshot of it stops working quickly and it can't be reused for
+  // anything but check-in.
+  fastify.get("/api/profile/checkin-qr", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) return reply.code(500).send({ error: "server misconfigured" });
+
+    const token = jwt.sign({ playerId: request.playerId, purpose: "checkin" }, jwtSecret, { expiresIn: "10m" });
+    return { token };
   });
 }

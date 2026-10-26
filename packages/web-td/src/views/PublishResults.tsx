@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { apiGet, apiPost } from "../lib/api.js";
 
 interface StandingRow {
@@ -82,7 +83,7 @@ export default function PublishResults({
       <div className="row" style={{ marginBottom: 14 }}>
         <strong>Публикация результатов</strong>
         <button className="btn btn-secondary" style={{ width: "auto", padding: "6px 12px" }} onClick={onCancel}>
-          ✕
+          <X size={16} />
         </button>
       </div>
 

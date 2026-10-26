@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { Download, Trophy, Lock, Bell, Mail, Check, Trash2 } from "lucide-react";
 import { apiGet, apiPost } from "../lib/api.js";
 import type { ProfileResponse } from "../lib/types.js";
 import { formatDateShort, initials } from "../lib/format.js";
 import Toggle from "../components/Toggle.js";
 import { exportMembershipCard } from "../lib/exportCard.js";
 import { confirmDialog } from "../lib/telegram.js";
+import CheckinQr from "../components/CheckinQr.js";
 
 export default function Profile({ onDeleted }: { onDeleted: () => void }) {
   const [data, setData] = useState<ProfileResponse | null>(null);
@@ -89,8 +91,15 @@ export default function Profile({ onDeleted }: { onDeleted: () => void }) {
             })
           }
         >
-          ⬇️ Скачать карту
+          <Download size={16} style={{ marginRight: 6, verticalAlign: -3 }} />
+          Скачать карту
         </button>
+      )}
+
+      {membership && (
+        <div style={{ marginBottom: 14 }}>
+          <CheckinQr />
+        </div>
       )}
 
       <div className="card" style={{ marginBottom: 14 }}>
@@ -138,7 +147,9 @@ export default function Profile({ onDeleted }: { onDeleted: () => void }) {
         {achievements.map((a) => (
           <div key={a.id} className="card" style={{ padding: 10 }}>
             <div className="row small">
-              <span>{a.unlocked ? "🏆" : "🔒"} {a.name}</span>
+              <span className="row" style={{ gap: 6, width: "auto" }}>
+                {a.unlocked ? <Trophy size={14} /> : <Lock size={14} />} {a.name}
+              </span>
             </div>
             <div className="progress-bar" style={{ marginTop: 6 }}>
               <div
@@ -172,7 +183,9 @@ export default function Profile({ onDeleted }: { onDeleted: () => void }) {
       <strong className="small muted">НАСТРОЙКИ</strong>
       <div className="card" style={{ marginTop: 10 }}>
         <div className="row small" style={{ marginBottom: 12 }}>
-          <span>🔔 Напоминания в Telegram</span>
+          <span className="row" style={{ gap: 6, width: "auto" }}>
+            <Bell size={16} /> Напоминания в Telegram
+          </span>
           <Toggle
             checked={notifsEnabled ?? true}
             disabled={notifsEnabled === null || notifsSaving}
@@ -180,8 +193,12 @@ export default function Profile({ onDeleted }: { onDeleted: () => void }) {
           />
         </div>
         <div className="row small" style={{ marginBottom: 12 }}>
-          <span>📧 Email привязан</span>
-          <span className="muted">✓</span>
+          <span className="row" style={{ gap: 6, width: "auto" }}>
+            <Mail size={16} /> Email привязан
+          </span>
+          <span className="muted">
+            <Check size={16} />
+          </span>
         </div>
         <button
           className="small"
@@ -189,7 +206,8 @@ export default function Profile({ onDeleted }: { onDeleted: () => void }) {
           disabled={deleting}
           onClick={handleDeleteData}
         >
-          🗑 {deleting ? "Удаляем…" : "Удалить мои данные"}
+          <Trash2 size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
+          {deleting ? "Удаляем…" : "Удалить мои данные"}
         </button>
       </div>
     </div>
