@@ -1,0 +1,9 @@
+.neon
+node_modules/
+.env.local
+.env
+dist/
+.turbo/
+*.log
+.idea/
+.claude/settings.local.json

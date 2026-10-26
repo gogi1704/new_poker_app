@@ -1,0 +1,67 @@
+import { useEffect, useState } from "react";
+import { authenticate, setToken } from "./lib/api.js";
+import Header from "./components/Header.js";
+import BottomNav, { type Tab } from "./components/BottomNav.js";
+import Home from "./tabs/Home.js";
+import Tournaments from "./tabs/Tournaments.js";
+import TournamentDetail from "./tabs/TournamentDetail.js";
+import Results from "./tabs/Results.js";
+import Rating from "./tabs/Rating.js";
+import Profile from "./tabs/Profile.js";
+
+type AuthState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready" }
+  | { status: "deleted" };
+
+export default function App() {
+  const [auth, setAuth] = useState<AuthState>({ status: "loading" });
+  const [tab, setTab] = useState<Tab>("home");
+  const [openTournamentId, setOpenTournamentId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    tg?.ready();
+    tg?.expand();
+
+    const initData = tg?.initData;
+    if (!initData) {
+      setAuth({ status: "error", message: "Открой это приложение через кнопку бота в Telegram." });
+      return;
+    }
+
+    authenticate(initData)
+      .then((data) => {
+        setToken(data.token);
+        setAuth({ status: "ready" });
+      })
+      .catch((err) => setAuth({ status: "error", message: String(err) }));
+  }, []);
+
+  if (auth.status === "loading") return <div className="loading">Входим…</div>;
+  if (auth.status === "error") return <div className="loading">{auth.message}</div>;
+  if (auth.status === "deleted") {
+    return <div className="loading">Ваши данные удалены. Чтобы начать заново, откройте бота ещё раз.</div>;
+  }
+
+  return (
+    <>
+      <Header />
+      {tab === "home" && <Home key={refreshKey} onOpenTournament={setOpenTournamentId} onNavigate={setTab} />}
+      {tab === "tournaments" && <Tournaments key={refreshKey} onOpen={setOpenTournamentId} />}
+      {tab === "results" && <Results />}
+      {tab === "rating" && <Rating />}
+      {tab === "profile" && <Profile key={refreshKey} onDeleted={() => setAuth({ status: "deleted" })} />}
+      <BottomNav active={tab} onChange={setTab} />
+      {openTournamentId && (
+        <TournamentDetail
+          id={openTournamentId}
+          onClose={() => setOpenTournamentId(null)}
+          onChanged={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
+    </>
+  );
+}

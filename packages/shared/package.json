@@ -1,0 +1,28 @@
+{
+  "name": "@poker/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.38.3",
+    "pg": "8.13.1",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.11.10",
+    "dotenv": "16.4.7",
+    "drizzle-kit": "0.30.1",
+    "typescript": "5.7.3"
+  }
+}
