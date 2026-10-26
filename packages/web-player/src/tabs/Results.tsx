@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "../lib/api.js";
 import type { ResultDetail, ResultsOverview } from "../lib/types.js";
-import { formatDateShort, formatLabel, formatMoney, initials } from "../lib/format.js";
+import { formatDateShort, formatLabel, formatMoney } from "../lib/format.js";
+import Avatar from "../components/Avatar.js";
 
 export default function Results() {
   const [overview, setOverview] = useState<ResultsOverview | null>(null);
@@ -94,7 +95,7 @@ function ResultStandings({ tournamentId }: { tournamentId: string }) {
           <div className="row-item" key={s.playerId}>
             <div className="row" style={{ gap: 8 }}>
               <span className="rank-medal">{i < 3 ? ["🥇", "🥈", "🥉"][i] : s.place}</span>
-              <div className="avatar">{initials(s.nickname)}</div>
+              <Avatar nickname={s.nickname} avatarUrl={s.avatarUrl} />
               <div>
                 <div className="small">{s.nickname}</div>
                 {s.knockoutsCount > 0 && (

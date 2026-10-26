@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { and, asc, eq, ne } from "drizzle-orm";
 import jwt from "jsonwebtoken";
+import { z } from "zod";
 import { schema, computeRankProgress, computeAchievementProgress } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { getPlayerClubStats, computeStreak } from "../services/stats.js";
@@ -72,6 +73,34 @@ export default async function profileRoutes(fastify: FastifyInstance) {
       achievements,
       myTournaments,
     };
+  });
+
+  // Player-editable profile: nickname and/or avatar (a preset icon or an
+  // uploaded photo, both sent as a data: URL already resized/compressed
+  // client-side — see components/ProfileEditor.tsx). Stored directly in the
+  // existing avatarUrl text column, same as a Telegram-provided photo URL,
+  // so nothing else in the app needs to special-case where it came from.
+  fastify.put("/api/profile", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const playerId = request.playerId!;
+
+    const body = z
+      .object({
+        nickname: z.string().trim().min(1).max(30).optional(),
+        avatarUrl: z.string().max(500_000).nullable().optional(),
+      })
+      .parse(request.body);
+
+    const [player] = await fastify.db
+      .update(schema.players)
+      .set({
+        ...(body.nickname !== undefined ? { nickname: body.nickname } : {}),
+        ...(body.avatarUrl !== undefined ? { avatarUrl: body.avatarUrl } : {}),
+      })
+      .where(eq(schema.players.id, playerId))
+      .returning();
+
+    return { player };
   });
 
   // 152-ФЗ self-service deletion: anonymize the player's display data rather

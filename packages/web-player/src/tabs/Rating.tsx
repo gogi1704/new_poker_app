@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "../lib/api.js";
 import type { RatingResponse } from "../lib/types.js";
-import { initials } from "../lib/format.js";
+import Avatar from "../components/Avatar.js";
 
 export default function Rating() {
   const [data, setData] = useState<RatingResponse | null>(null);
@@ -62,7 +62,7 @@ export default function Rating() {
           <div className="row-item" key={row.playerId}>
             <div className="row" style={{ gap: 10 }}>
               <span className="rank-medal">{row.rank}</span>
-              <div className="avatar">{initials(row.nickname)}</div>
+              <Avatar nickname={row.nickname} avatarUrl={row.avatarUrl} />
               <div>
                 <div className="small">{row.nickname}</div>
                 <div className="small muted">{row.gamesPlayed} игр</div>
@@ -82,18 +82,13 @@ export default function Rating() {
 function Podium({ row, place, big }: { row: RatingResponse["podium"][number]; place: number; big?: boolean }) {
   return (
     <div style={{ flex: 1, textAlign: "center" }}>
-      <div
-        className="avatar"
-        style={{
-          width: big ? 56 : 44,
-          height: big ? 56 : 44,
-          margin: "0 auto 6px",
-          fontSize: big ? 18 : 14,
-          border: big ? "2px solid var(--accent)" : "1px solid var(--border)",
-        }}
-      >
-        {initials(row.nickname)}
-      </div>
+      <Avatar
+        nickname={row.nickname}
+        avatarUrl={row.avatarUrl}
+        size={big ? 56 : 44}
+        fontSize={big ? 18 : 14}
+        style={{ margin: "0 auto 6px", border: big ? "2px solid var(--accent)" : "1px solid var(--border)" }}
+      />
       <div className="small" style={{ fontWeight: 700 }}>
         {place}
       </div>

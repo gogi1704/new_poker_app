@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
+import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { schema } from "@poker/shared";
 import { validateTelegramInitData } from "../lib/telegram-init-data.js";
@@ -42,7 +43,17 @@ export default async function authRoutes(fastify: FastifyInstance) {
         // Logging in again after a 152-ФЗ data-deletion request is treated as
         // renewed consent — it un-deletes the account rather than leaving it
         // in a confusing half-deleted state the player can't recover from.
-        set: { nickname, avatarUrl: validated.user.photo_url, deletedAt: null },
+        // But for a normal, already-active account, nickname/avatar are now
+        // player-editable (see /api/profile PUT) — re-authenticating on every
+        // app open must NOT clobber a customized profile back to whatever
+        // Telegram happens to have, so those two columns only get reset to
+        // the fresh Telegram values when the row is actually coming back
+        // from a deleted state.
+        set: {
+          nickname: sql`case when ${schema.players.deletedAt} is not null then ${nickname} else ${schema.players.nickname} end`,
+          avatarUrl: sql`case when ${schema.players.deletedAt} is not null then ${validated.user.photo_url} else ${schema.players.avatarUrl} end`,
+          deletedAt: null,
+        },
       })
       .returning();
 

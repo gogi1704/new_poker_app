@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Download, Trophy, Lock, Bell, Mail, Check, Trash2 } from "lucide-react";
+import { Download, Trophy, Lock, Bell, Mail, Check, Trash2, Pencil } from "lucide-react";
 import { apiGet, apiPost } from "../lib/api.js";
 import type { ProfileResponse } from "../lib/types.js";
-import { formatDateShort, initials } from "../lib/format.js";
+import { formatDateShort } from "../lib/format.js";
 import Toggle from "../components/Toggle.js";
+import Avatar from "../components/Avatar.js";
+import ProfileEditor from "../components/ProfileEditor.js";
 import { exportMembershipCard } from "../lib/exportCard.js";
 import { confirmDialog } from "../lib/telegram.js";
 import CheckinQr from "../components/CheckinQr.js";
@@ -13,6 +15,7 @@ export default function Profile({ onDeleted }: { onDeleted: () => void }) {
   const [notifsEnabled, setNotifsEnabled] = useState<boolean | null>(null);
   const [notifsSaving, setNotifsSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     apiGet<ProfileResponse>("/api/profile").then(setData);
@@ -51,13 +54,30 @@ export default function Profile({ onDeleted }: { onDeleted: () => void }) {
 
   return (
     <div className="section">
+      {editing && (
+        <ProfileEditor
+          nickname={player.nickname}
+          avatarUrl={player.avatarUrl}
+          onClose={() => setEditing(false)}
+          onSaved={(updated) => {
+            setData((d) => (d ? { ...d, player: { ...d.player, ...updated } } : d));
+            setEditing(false);
+          }}
+        />
+      )}
+
       <div className="row" style={{ marginBottom: 16 }}>
         <div className="row" style={{ gap: 10 }}>
-          <div className="avatar" style={{ width: 48, height: 48, fontSize: 16 }}>
-            {initials(player.nickname)}
-          </div>
+          <Avatar nickname={player.nickname} avatarUrl={player.avatarUrl} size={48} fontSize={16} />
           <strong>{player.nickname}</strong>
         </div>
+        <button
+          className="btn btn-secondary"
+          style={{ width: "auto", padding: "6px 10px" }}
+          onClick={() => setEditing(true)}
+        >
+          <Pencil size={16} />
+        </button>
       </div>
 
       {membership && (

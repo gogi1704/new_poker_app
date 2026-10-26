@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "../lib/api.js";
 import type { ProfileResponse, TournamentSummary } from "../lib/types.js";
-import { formatDateShort, formatMoney, initials } from "../lib/format.js";
+import { formatDateShort, formatMoney } from "../lib/format.js";
 import { useCountdown } from "../lib/useCountdown.js";
 import type { Tab } from "../components/BottomNav.js";
+import Avatar from "../components/Avatar.js";
 
 export default function Home({ onOpenTournament, onNavigate }: {
   onOpenTournament: (id: string) => void;
@@ -31,9 +32,7 @@ export default function Home({ onOpenTournament, onNavigate }: {
     <div className="section">
       <div className="card row" style={{ marginBottom: 12 }}>
         <div className="row" style={{ gap: 10 }}>
-          <div className="avatar" style={{ width: 48, height: 48, fontSize: 16 }}>
-            {profile ? initials(profile.player.nickname) : "?"}
-          </div>
+          <Avatar nickname={profile?.player.nickname ?? "?"} avatarUrl={profile?.player.avatarUrl ?? null} size={48} fontSize={16} />
           <div>
             <div style={{ fontWeight: 700 }}>{profile?.player.nickname ?? "Гость"}</div>
             <div className="small muted">

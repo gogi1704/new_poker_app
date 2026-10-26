@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "../lib/api.js";
 import type { TournamentDetail as TournamentDetailT } from "../lib/types.js";
-import { formatDateTime, formatLabel, formatMoney, initials } from "../lib/format.js";
+import { formatDateTime, formatLabel, formatMoney } from "../lib/format.js";
 import { useCountdown } from "../lib/useCountdown.js";
+import Avatar from "../components/Avatar.js";
 
 export default function TournamentDetail({
   id,
@@ -116,7 +117,7 @@ export default function TournamentDetail({
                   <div className="row-item" key={p.playerId}>
                     <div className="row" style={{ gap: 8 }}>
                       <span className="rank-medal">{i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
-                      <div className="avatar">{initials(p.nickname)}</div>
+                      <Avatar nickname={p.nickname} avatarUrl={p.avatarUrl} />
                       <span>{p.nickname}</span>
                     </div>
                     <span className="badge">{p.totalRps} RPS</span>
