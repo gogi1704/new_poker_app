@@ -15,6 +15,7 @@ export interface TournamentListItem {
   name: string;
   format: TournamentFormat;
   status: TournamentStatus;
+  archived: boolean;
   scheduledAt: string;
   buyIn: string;
   startingStack: number;

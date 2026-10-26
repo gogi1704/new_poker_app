@@ -146,6 +146,9 @@ export const tournaments = pgTable("tournaments", {
   name: text("name").notNull(),
   format: tournamentFormatEnum("format").notNull().default("freezeout"),
   status: tournamentStatusEnum("status").notNull().default("scheduled"),
+  // Separate from status (a running/finished/cancelled tournament can all be
+  // archived) — just hides it from the default list, nothing destructive.
+  archived: boolean("archived").notNull().default(false),
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
   buyIn: numeric("buy_in", { precision: 10, scale: 2 }).notNull(),
   startingStack: integer("starting_stack").notNull(),

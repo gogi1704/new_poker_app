@@ -53,10 +53,16 @@ export default async function tdTournamentsRoutes(fastify: FastifyInstance) {
     const staff = await requireStaff(request, reply, fastify.db, club.id);
     if (!staff) return;
 
+    const { includeArchived } = request.query as { includeArchived?: string };
+
     const rows = await fastify.db
       .select()
       .from(schema.tournaments)
-      .where(eq(schema.tournaments.clubId, club.id))
+      .where(
+        includeArchived === "true"
+          ? eq(schema.tournaments.clubId, club.id)
+          : and(eq(schema.tournaments.clubId, club.id), eq(schema.tournaments.archived, false)),
+      )
       .orderBy(desc(schema.tournaments.scheduledAt));
     return rows;
   });
@@ -160,6 +166,9 @@ export default async function tdTournamentsRoutes(fastify: FastifyInstance) {
     return { id };
   });
 
+  // Works for a scheduled/registering tournament (never started) and for a
+  // running one (emergency stop mid-event) alike — the only state it refuses
+  // is "finished", since there's nothing meaningful to stop at that point.
   fastify.post("/api/td/tournaments/:id/cancel", async (request, reply) => {
     const club = await getDefaultClub(fastify.db);
     const staff = await requireStaff(request, reply, fastify.db, club.id);
@@ -171,8 +180,129 @@ export default async function tdTournamentsRoutes(fastify: FastifyInstance) {
       .from(schema.tournaments)
       .where(and(eq(schema.tournaments.id, id), eq(schema.tournaments.clubId, club.id)));
     if (!existing) return reply.code(404).send({ error: "not found" });
+    if (existing.status === "finished") return reply.code(409).send({ error: "tournament already finished" });
 
     await fastify.db.update(schema.tournaments).set({ status: "cancelled" }).where(eq(schema.tournaments.id, id));
     return { id, status: "cancelled" };
+  });
+
+  // Archiving is independent of status (a scheduled, running, finished or
+  // cancelled tournament can all be archived) — it only hides the row from
+  // the default list, nothing is touched or lost.
+  fastify.post("/api/td/tournaments/:id/archive", async (request, reply) => {
+    const club = await getDefaultClub(fastify.db);
+    const staff = await requireStaff(request, reply, fastify.db, club.id);
+    if (!staff) return;
+
+    const { id } = request.params as { id: string };
+    const [existing] = await fastify.db
+      .select()
+      .from(schema.tournaments)
+      .where(and(eq(schema.tournaments.id, id), eq(schema.tournaments.clubId, club.id)));
+    if (!existing) return reply.code(404).send({ error: "not found" });
+
+    await fastify.db.update(schema.tournaments).set({ archived: true }).where(eq(schema.tournaments.id, id));
+    return { id, archived: true };
+  });
+
+  fastify.post("/api/td/tournaments/:id/unarchive", async (request, reply) => {
+    const club = await getDefaultClub(fastify.db);
+    const staff = await requireStaff(request, reply, fastify.db, club.id);
+    if (!staff) return;
+
+    const { id } = request.params as { id: string };
+    const [existing] = await fastify.db
+      .select()
+      .from(schema.tournaments)
+      .where(and(eq(schema.tournaments.id, id), eq(schema.tournaments.clubId, club.id)));
+    if (!existing) return reply.code(404).send({ error: "not found" });
+
+    await fastify.db.update(schema.tournaments).set({ archived: false }).where(eq(schema.tournaments.id, id));
+    return { id, archived: false };
+  });
+
+  // Hard delete. Cascades clean up everything tournament-scoped (blind
+  // levels, tables, registrations, knockouts, rebuys, tournament_results),
+  // but rps_ledger.tournament_id is ON DELETE SET NULL — a player's RPS they
+  // already earned here is NOT erased, just unlinked from the now-gone
+  // tournament, so deleting never silently changes anyone's rating total.
+  fastify.delete("/api/td/tournaments/:id", async (request, reply) => {
+    const club = await getDefaultClub(fastify.db);
+    const staff = await requireStaff(request, reply, fastify.db, club.id);
+    if (!staff) return;
+
+    const { id } = request.params as { id: string };
+    const [existing] = await fastify.db
+      .select()
+      .from(schema.tournaments)
+      .where(and(eq(schema.tournaments.id, id), eq(schema.tournaments.clubId, club.id)));
+    if (!existing) return reply.code(404).send({ error: "not found" });
+
+    await fastify.db.delete(schema.tournaments).where(eq(schema.tournaments.id, id));
+    return { deleted: true };
+  });
+
+  // "Заготовка": copies a tournament's settings + blind structure into a
+  // brand-new scheduled tournament (no registrations/results carried over)
+  // so the TD doesn't have to rebuild a recurring tournament from scratch
+  // every time. Returns the new id so the frontend can open it straight in
+  // the edit form to adjust the name/date before saving for real.
+  fastify.post("/api/td/tournaments/:id/duplicate", async (request, reply) => {
+    const club = await getDefaultClub(fastify.db);
+    const staff = await requireStaff(request, reply, fastify.db, club.id);
+    if (!staff) return;
+
+    const { id } = request.params as { id: string };
+    const [source] = await fastify.db
+      .select()
+      .from(schema.tournaments)
+      .where(and(eq(schema.tournaments.id, id), eq(schema.tournaments.clubId, club.id)));
+    if (!source) return reply.code(404).send({ error: "not found" });
+
+    const sourceBlindLevels = await fastify.db
+      .select()
+      .from(schema.blindLevels)
+      .where(eq(schema.blindLevels.tournamentId, id))
+      .orderBy(asc(schema.blindLevels.levelNumber));
+
+    const [copy] = await fastify.db
+      .insert(schema.tournaments)
+      .values({
+        clubId: club.id,
+        name: `${source.name} (копия)`,
+        format: source.format,
+        status: "scheduled",
+        scheduledAt: source.scheduledAt,
+        buyIn: source.buyIn,
+        startingStack: source.startingStack,
+        maxSeats: source.maxSeats,
+        maxSeatsPerTable: source.maxSeatsPerTable,
+        lateRegUntilLevel: source.lateRegUntilLevel,
+        reentryAllowedUntilLevel: source.reentryAllowedUntilLevel,
+        reentryPrice: source.reentryPrice,
+        addonPrice: source.addonPrice,
+        addonStack: source.addonStack,
+        addonAvailableLevel: source.addonAvailableLevel,
+        addonMaxCount: source.addonMaxCount,
+        arriveBonusStack: source.arriveBonusStack,
+        rpsFormulaParams: source.rpsFormulaParams,
+      })
+      .returning();
+
+    if (sourceBlindLevels.length > 0) {
+      await fastify.db.insert(schema.blindLevels).values(
+        sourceBlindLevels.map((l) => ({
+          tournamentId: copy.id,
+          levelNumber: l.levelNumber,
+          smallBlind: l.smallBlind,
+          bigBlind: l.bigBlind,
+          ante: l.ante,
+          durationMinutes: l.durationMinutes,
+          isBreak: l.isBreak,
+        })),
+      );
+    }
+
+    return reply.code(201).send({ id: copy.id });
   });
 }
