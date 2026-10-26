@@ -55,11 +55,30 @@ export const pushTypeEnum = pgEnum("push_type", ["telegram_dm", "web_push"]);
 
 // ---------- core tables ----------
 
+export interface BoardSettings {
+  showPayoutPreview: boolean;
+  showKnockoutTicker: boolean;
+  showChipLeader: boolean;
+  accentColor: string;
+  soundEnabled: boolean;
+  soundVolume: number;
+}
+
+export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
+  showPayoutPreview: true,
+  showKnockoutTicker: true,
+  showChipLeader: false,
+  accentColor: "#4da3ff",
+  soundEnabled: true,
+  soundVolume: 0.7,
+};
+
 export const clubs = pgTable("clubs", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   logoUrl: text("logo_url"),
   timezone: text("timezone").notNull().default("Europe/Moscow"),
+  boardSettings: jsonb("board_settings").$type<BoardSettings>().notNull().default(DEFAULT_BOARD_SETTINGS),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

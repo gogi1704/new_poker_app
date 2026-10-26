@@ -147,14 +147,144 @@ function CheckinPanel({
         ))}
       </div>
 
+      {state.tables.length === 0 ? (
+        <button
+          className="btn btn-secondary"
+          style={{ marginBottom: 14 }}
+          disabled={busy || state.counts.checkedIn < 2}
+          onClick={() => onAction("/draw-seats")}
+        >
+          🎲 Разложить места
+        </button>
+      ) : (
+        <SeatingDraft state={state} busy={busy} onAction={onAction} />
+      )}
+
       <button
         className="btn btn-primary"
-        disabled={busy || state.counts.checkedIn < 2}
+        disabled={busy || state.counts.active < 2}
         onClick={() => onAction("/start")}
       >
-        {state.counts.checkedIn < 2 ? "Нужно ≥2 игроков с чек-ином" : `▶ Начать турнир (${state.counts.checkedIn})`}
+        {state.counts.active < 2
+          ? `Нужно ≥2 ${state.tables.length === 0 ? "игроков с чек-ином" : "за столами"}`
+          : `▶ Начать турнир (${state.counts.active})`}
       </button>
     </>
+  );
+}
+
+/** Pre-start table view: who's drawn to sit where, with manual move + auto-balance — the same tools RunningConsole gets, just without knockout/stack controls that don't make sense before the clock starts. */
+function SeatingDraft({
+  state,
+  busy,
+  onAction,
+}: {
+  state: LiveState;
+  busy: boolean;
+  onAction: (path: string, body?: unknown) => Promise<void>;
+}) {
+  return (
+    <>
+      <div className="row" style={{ gap: 8, marginBottom: 14 }}>
+        {state.tables.length > 1 && (
+          <button className="btn btn-secondary" disabled={busy} onClick={() => onAction("/rebalance")}>
+            ⚖ Сбалансировать
+          </button>
+        )}
+        <button className="btn btn-secondary" disabled={busy} onClick={() => onAction("/tables/add")}>
+          + Добавить стол
+        </button>
+      </div>
+
+      <strong className="small muted">СТОЛЫ</strong>
+      {state.tables.map((table) => (
+        <div className="card" key={table.tableNo} style={{ marginTop: 10, marginBottom: 14 }}>
+          <div className="row">
+            <strong className="small">Стол {table.tableNo}</strong>
+            {table.seats.length === 0 && (
+              <button
+                className="btn btn-secondary"
+                style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}
+                disabled={busy}
+                onClick={() => onAction(`/tables/${table.tableNo}/close`)}
+              >
+                Закрыть стол
+              </button>
+            )}
+          </div>
+          <div className="row-list" style={{ marginTop: 8 }}>
+            {table.seats.map((seat) => (
+              <SeatRowPreStart key={seat.playerId} seat={seat} tables={state.tables} busy={busy} onAction={onAction} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function SeatRowPreStart({
+  seat,
+  tables,
+  busy,
+  onAction,
+}: {
+  seat: LiveSeat;
+  tables: LiveTable[];
+  busy: boolean;
+  onAction: (path: string, body?: unknown) => Promise<void>;
+}) {
+  const [moving, setMoving] = useState(false);
+  const [target, setTarget] = useState("");
+
+  const freeSeats = tables.flatMap((t) =>
+    Array.from({ length: t.maxSeats }, (_, i) => i + 1)
+      .filter((n) => n === seat.seatNo || !t.seats.some((s) => s.seatNo === n))
+      .map((n) => ({ tableNo: t.tableNo, seatNo: n })),
+  );
+
+  return (
+    <div className="row-item" style={{ flexWrap: "wrap" }}>
+      <div className="row" style={{ gap: 8, flex: 1, minWidth: 160 }}>
+        <span className="small muted">#{seat.seatNo}</span>
+        <span>{initials(seat.nickname)}</span>
+        <span>{seat.nickname}</span>
+      </div>
+      <button
+        className="btn btn-secondary"
+        style={{ width: "auto", padding: "4px 8px", fontSize: 11 }}
+        disabled={busy}
+        onClick={() => setMoving((v) => !v)}
+      >
+        ↔ Пересадить
+      </button>
+
+      {moving && (
+        <div className="row" style={{ gap: 6, width: "100%", marginTop: 6 }}>
+          <select value={target} onChange={(e) => setTarget(e.target.value)} style={{ ...seatInputStyle, flex: 1 }}>
+            <option value="">Куда пересадить?</option>
+            {freeSeats.map((f) => (
+              <option key={`${f.tableNo}-${f.seatNo}`} value={`${f.tableNo}-${f.seatNo}`}>
+                Стол {f.tableNo}, место {f.seatNo}
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn btn-primary"
+            style={{ width: "auto", fontSize: 11 }}
+            disabled={busy || !target}
+            onClick={() => {
+              const [tableNo, seatNo] = target.split("-").map(Number);
+              onAction("/move-seat", { playerId: seat.playerId, tableNo, seatNo });
+              setMoving(false);
+              setTarget("");
+            }}
+          >
+            Пересадить
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

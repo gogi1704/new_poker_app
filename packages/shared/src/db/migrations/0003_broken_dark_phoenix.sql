@@ -1,0 +1,1 @@
+ALTER TABLE "clubs" ADD COLUMN "board_settings" jsonb DEFAULT '{"showPayoutPreview":true,"showKnockoutTicker":true,"showChipLeader":false,"accentColor":"#4da3ff","soundEnabled":true,"soundVolume":0.7}'::jsonb NOT NULL;

@@ -19,6 +19,13 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
   const totalSeconds = level ? level.durationMinutes * 60 : 0;
   const urgent = level && !level.isBreak && remaining <= 30;
   const finished = state?.tournament.status === "finished";
+  const settings = state?.board?.settings;
+  const accent = settings?.accentColor ?? "#4da3ff";
+
+  function chime() {
+    if (settings && !settings.soundEnabled) return;
+    playChime(settings?.soundVolume ?? 0.7);
+  }
 
   // Chime + flash whenever the level actually changes (covers both a blind
   // bump and a break starting/ending, since a break is just a level row with
@@ -26,7 +33,7 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
   useEffect(() => {
     const current = state?.clock?.levelNumber ?? null;
     if (current !== null && prevLevelRef.current !== null && current !== prevLevelRef.current) {
-      playChime();
+      chime();
     }
     prevLevelRef.current = current;
   }, [state?.clock?.levelNumber]);
@@ -35,7 +42,7 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
   useEffect(() => {
     if (finished && !celebratedRef.current) {
       celebratedRef.current = true;
-      playChime();
+      chime();
     }
   }, [finished]);
 
@@ -71,10 +78,11 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
     <div style={styles.wrap}>
       <style>{keyframes}</style>
       <div style={styles.connDot(connected)} />
-      <div style={styles.name}>{state.tournament.name}</div>
+      {state.board?.logoUrl && <img src={state.board.logoUrl} alt="" style={styles.logo} />}
+      <div style={{ ...styles.name, color: accent }}>{state.tournament.name}</div>
 
       {state.announcement && (
-        <div style={styles.announcement} key={state.announcement.text}>
+        <div style={{ ...styles.announcement, background: accent }} key={state.announcement.text}>
           📢 {state.announcement.text}
         </div>
       )}
@@ -83,7 +91,9 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
 
       {state.clock && (
         <>
-          {level?.isBreak && <div style={styles.breakBadge}>ПЕРЕРЫВ</div>}
+          {level?.isBreak && (
+            <div style={{ ...styles.breakBadge, background: `${accent}26`, color: accent }}>ПЕРЕРЫВ</div>
+          )}
           <div style={{ ...styles.clock, ...(urgent ? { animation: "pulseRed 1s infinite" } : {}) }}>
             {formatMMSS(remaining)}
           </div>
@@ -94,7 +104,7 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
                 style={{
                   ...styles.progressFill,
                   width: `${Math.max(0, Math.min(100, (remaining / totalSeconds) * 100))}%`,
-                  background: urgent ? "#ff6b6b" : "#4da3ff",
+                  background: urgent ? "#ff6b6b" : accent,
                 }}
               />
             </div>
@@ -120,9 +130,15 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
             <Stat value={state.counts.active} label="игроков" />
             <Stat value={state.counts.tablesActive} label="столов" />
             <Stat value={avgStack.toLocaleString("ru-RU")} label="средний стек" />
+            {settings?.showChipLeader && state.chipLeader && (
+              <Stat
+                value={state.chipLeader.stack.toLocaleString("ru-RU")}
+                label={`лидер: ${state.chipLeader.nickname}`}
+              />
+            )}
           </div>
 
-          {payoutEntries.length > 0 && (
+          {(settings?.showPayoutPreview ?? true) && payoutEntries.length > 0 && (
             <div style={styles.payoutStrip}>
               {payoutEntries.map((p) => (
                 <div key={p.place} style={styles.payoutItem}>
@@ -132,7 +148,7 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
             </div>
           )}
 
-          {state.eliminations.length > 0 && (
+          {(settings?.showKnockoutTicker ?? true) && state.eliminations.length > 0 && (
             <div style={styles.ticker}>
               {state.eliminations.slice(0, 5).map((e) => (
                 <span key={`${e.playerId}-${e.at}`} style={styles.tickerItem}>
@@ -157,11 +173,13 @@ function Stat({ value, label }: { value: number | string; label: string }) {
 }
 
 let audioCtx: AudioContext | null = null;
-function playChime() {
+function playChime(volume: number) {
+  if (volume <= 0) return;
   try {
     audioCtx ??= new AudioContext();
     const ctx = audioCtx;
     const now = ctx.currentTime;
+    const peak = 0.25 * volume;
     [660, 880].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -170,7 +188,7 @@ function playChime() {
       gain.connect(ctx.destination);
       const start = now + i * 0.18;
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(peak, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.3);
       osc.start(start);
       osc.stop(start + 0.32);
@@ -201,6 +219,7 @@ const styles = {
   },
   loading: { fontSize: 24, color: "#8b98ab" },
   waiting: { fontSize: 28, color: "#8b98ab", marginTop: 40 },
+  logo: { width: 56, height: 56, borderRadius: 14, objectFit: "cover" as const, marginBottom: 10 },
   trophy: { fontSize: 140, marginTop: 20, animation: "popIn 0.6s ease-out" },
   finishedTitle: { fontSize: 44, fontWeight: 800, marginTop: 10 },
   winnerName: { fontSize: 32, color: "#e8b23d", fontWeight: 700, marginTop: 20 },

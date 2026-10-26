@@ -9,7 +9,7 @@ export async function buildLiveState(db: Database, tournamentId: string) {
   // remote Postgres (Neon) costs real latency — running them sequentially made
   // the first SSE push take 4-5s. Firing them concurrently cuts that to the
   // slowest single query instead of the sum of all of them.
-  const [tournament, blindLevels, clockRow, registrations, tableRows, knockoutRows, rebuyTotalRow, winnerRow] =
+  const [tournament, blindLevels, clockRow, registrations, tableRows, knockoutRows, rebuyTotalRow, winnerRow, clubRow] =
     await Promise.all([
       db
         .select()
@@ -64,6 +64,13 @@ export async function buildLiveState(db: Database, tournamentId: string) {
         .from(schema.tournamentResults)
         .innerJoin(schema.players, eq(schema.players.id, schema.tournamentResults.playerId))
         .where(and(eq(schema.tournamentResults.tournamentId, tournamentId), eq(schema.tournamentResults.place, 1)))
+        .then((rows) => rows[0]),
+      // Single-club launch (see getDefaultClub) — board branding/settings live
+      // on the one club row, not per-tournament.
+      db
+        .select()
+        .from(schema.clubs)
+        .limit(1)
         .then((rows) => rows[0]),
     ]);
 
@@ -148,6 +155,9 @@ export async function buildLiveState(db: Database, tournamentId: string) {
     payoutPreview,
     announcement: getAnnouncement(tournamentId),
     winner: winnerRow ? { nickname: winnerRow.nickname } : null,
+    board: clubRow
+      ? { clubName: clubRow.name, logoUrl: clubRow.logoUrl, settings: clubRow.boardSettings }
+      : null,
   };
 }
 

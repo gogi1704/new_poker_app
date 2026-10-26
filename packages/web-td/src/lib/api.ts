@@ -30,6 +30,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const apiGet = <T>(path: string) => request<T>("GET", path);
 export const apiPost = <T>(path: string, body?: unknown) => request<T>("POST", path, body);
 export const apiPut = <T>(path: string, body?: unknown) => request<T>("PUT", path, body);
+export const apiDelete = <T>(path: string) => request<T>("DELETE", path);
 
 export async function authenticate(initData: string) {
   const res = await fetch(`${API_BASE_URL}/api/auth/telegram`, {

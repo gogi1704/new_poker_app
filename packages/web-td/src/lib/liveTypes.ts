@@ -49,6 +49,21 @@ export interface BoardAnnouncement {
   expiresAt: string;
 }
 
+export interface BoardSettings {
+  showPayoutPreview: boolean;
+  showKnockoutTicker: boolean;
+  showChipLeader: boolean;
+  accentColor: string;
+  soundEnabled: boolean;
+  soundVolume: number;
+}
+
+export interface BoardInfo {
+  clubName: string;
+  logoUrl: string | null;
+  settings: BoardSettings;
+}
+
 export interface LiveState {
   tournament: {
     id: string;
@@ -79,4 +94,5 @@ export interface LiveState {
   payoutPreview: Record<string, number>;
   announcement: BoardAnnouncement | null;
   winner: { nickname: string } | null;
+  board: BoardInfo | null;
 }

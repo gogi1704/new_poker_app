@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { Settings, Users, Tv2 } from "lucide-react";
 import { authenticate, setToken, apiGet } from "./lib/api.js";
 import TournamentList from "./views/TournamentList.js";
 import TournamentForm from "./views/TournamentForm.js";
 import LiveConsole from "./views/LiveConsole.js";
 import PublishResults from "./views/PublishResults.js";
+import StaffSettings from "./views/StaffSettings.js";
+import BoardSettings from "./views/BoardSettings.js";
 
 type AuthState =
   | { status: "loading" }
@@ -16,7 +18,9 @@ type View =
   | { name: "create" }
   | { name: "edit"; id: string }
   | { name: "live"; id: string }
-  | { name: "publish"; id: string };
+  | { name: "publish"; id: string }
+  | { name: "staff" }
+  | { name: "board" };
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
@@ -60,6 +64,26 @@ export default function App() {
           </div>
           <div className="sub">TD-панель · роль: {auth.role}</div>
         </div>
+        {auth.role === "owner" && (
+          <div className="row" style={{ gap: 6, width: "auto" }}>
+            <button
+              className="btn btn-secondary"
+              style={{ width: "auto", padding: "6px 10px" }}
+              onClick={() => setView({ name: "staff" })}
+              title="Доступы"
+            >
+              <Users size={16} />
+            </button>
+            <button
+              className="btn btn-secondary"
+              style={{ width: "auto", padding: "6px 10px" }}
+              onClick={() => setView({ name: "board" })}
+              title="Настройка табло"
+            >
+              <Tv2 size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       {view.name === "list" && (
@@ -89,6 +113,8 @@ export default function App() {
       {view.name === "publish" && (
         <PublishResults tournamentId={view.id} onDone={closeToList} onCancel={() => setView({ name: "live", id: view.id })} />
       )}
+      {view.name === "staff" && <StaffSettings onClose={closeToList} />}
+      {view.name === "board" && <BoardSettings onClose={closeToList} />}
     </>
   );
 }

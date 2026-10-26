@@ -34,3 +34,19 @@ export async function requireStaff(
   }
   return account;
 }
+
+/** Granting/revoking staff access and editing club/board settings is owner-only. */
+export async function requireOwner(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  db: Database,
+  clubId: string,
+) {
+  const account = await requireStaff(request, reply, db, clubId);
+  if (!account) return null;
+  if (account.role !== "owner") {
+    reply.code(403).send({ error: "owner access required" });
+    return null;
+  }
+  return account;
+}

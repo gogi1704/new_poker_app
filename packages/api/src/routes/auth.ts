@@ -29,13 +29,18 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const nickname =
       validated.user.username ??
       [validated.user.first_name, validated.user.last_name].filter(Boolean).join(" ");
+    // Telegram omits photo_url entirely when the user has no profile photo —
+    // normalize to null (not undefined) since it gets interpolated into a
+    // raw sql`` template below, and drizzle silently mis-renders undefined
+    // params there (produces invalid SQL rather than binding NULL).
+    const avatarUrl = validated.user.photo_url ?? null;
 
     const [player] = await fastify.db
       .insert(schema.players)
       .values({
         telegramId,
         nickname,
-        avatarUrl: validated.user.photo_url,
+        avatarUrl,
         derivedEmail: `telegram_${telegramId}@telegram.user`,
       })
       .onConflictDoUpdate({
@@ -51,7 +56,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         // from a deleted state.
         set: {
           nickname: sql`case when ${schema.players.deletedAt} is not null then ${nickname} else ${schema.players.nickname} end`,
-          avatarUrl: sql`case when ${schema.players.deletedAt} is not null then ${validated.user.photo_url} else ${schema.players.avatarUrl} end`,
+          avatarUrl: sql`case when ${schema.players.deletedAt} is not null then ${avatarUrl} else ${schema.players.avatarUrl} end`,
           deletedAt: null,
         },
       })
