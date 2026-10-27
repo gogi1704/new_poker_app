@@ -1,7 +1,21 @@
 import { useEffect, useState } from "react";
+import { Sprout, Fish, Repeat2, Swords, BadgeCheck, Crown, Award, type LucideIcon } from "lucide-react";
 import { apiGet } from "../lib/api.js";
 import type { RatingResponse } from "../lib/types.js";
 import Avatar from "../components/Avatar.js";
+
+const TIER_ICONS: Record<string, LucideIcon> = {
+  Newbie: Sprout,
+  Fish: Fish,
+  Grinder: Repeat2,
+  Shark: Swords,
+  Pro: BadgeCheck,
+  Legend: Crown,
+};
+
+function tierIcon(name: string): LucideIcon {
+  return TIER_ICONS[name] ?? Award;
+}
 
 export default function Rating() {
   const [data, setData] = useState<RatingResponse | null>(null);
@@ -18,29 +32,32 @@ export default function Rating() {
         — PROGRESS
       </div>
       <strong>Ранги</strong>
-      <div className="chip-row" style={{ margin: "10px 0 20px" }}>
-        {data.rankTiers.map((tier) => (
-          <div
-            key={tier.id}
-            style={{
-              flexShrink: 0,
-              width: 56,
-              height: 56,
-              borderRadius: "50%",
-              background: "var(--card-2)",
-              border: "2px solid var(--border)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 10,
-              textAlign: "center",
-              padding: 4,
-            }}
-            title={tier.name}
-          >
-            {tier.name}
-          </div>
-        ))}
+      <div className="chip-row" style={{ margin: "10px 0 20px", gap: 14 }}>
+        {data.rankTiers.map((tier) => {
+          const Icon = tierIcon(tier.name);
+          return (
+            <div key={tier.id} style={{ flexShrink: 0, textAlign: "center", width: 60 }}>
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: "50%",
+                  background: "rgba(255, 255, 255, 0.04)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 6px",
+                }}
+              >
+                <Icon size={24} color="var(--accent)" strokeWidth={1.8} />
+              </div>
+              <div className="small muted" style={{ fontSize: 10 }}>
+                {tier.name}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div style={{ marginBottom: 6, fontSize: 11, color: "var(--muted)", letterSpacing: "0.04em" }}>
