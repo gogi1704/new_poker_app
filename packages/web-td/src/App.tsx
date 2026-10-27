@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Settings, Users, Tv2, Building2 } from "lucide-react";
+import { Settings, Users, Tv2, Building2, QrCode } from "lucide-react";
 import { authenticate, setToken, apiGet } from "./lib/api.js";
 import TournamentList from "./views/TournamentList.js";
 import TournamentForm from "./views/TournamentForm.js";
@@ -8,6 +8,7 @@ import PublishResults from "./views/PublishResults.js";
 import StaffSettings from "./views/StaffSettings.js";
 import BoardSettings from "./views/BoardSettings.js";
 import ClubSettings from "./views/ClubSettings.js";
+import ScanCheckin from "./views/ScanCheckin.js";
 
 type AuthState =
   | { status: "loading" }
@@ -22,7 +23,8 @@ type View =
   | { name: "publish"; id: string }
   | { name: "staff" }
   | { name: "board" }
-  | { name: "club" };
+  | { name: "club" }
+  | { name: "scan" };
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
@@ -66,16 +68,25 @@ export default function App() {
           </div>
           <div className="sub">TD-панель · роль: {auth.role}</div>
         </div>
-        {auth.role === "owner" && (
-          <div className="row" style={{ gap: 6, width: "auto" }}>
-            <button
-              className="btn btn-secondary"
-              style={{ width: "auto", padding: "6px 10px" }}
-              onClick={() => setView({ name: "club" })}
-              title="Управление клубом"
-            >
-              <Building2 size={16} />
-            </button>
+        <div className="row" style={{ gap: 6, width: "auto" }}>
+          <button
+            className="btn btn-secondary"
+            style={{ width: "auto", padding: "6px 10px" }}
+            onClick={() => setView({ name: "scan" })}
+            title="Стойка регистрации"
+          >
+            <QrCode size={16} />
+          </button>
+          {auth.role === "owner" && (
+            <>
+              <button
+                className="btn btn-secondary"
+                style={{ width: "auto", padding: "6px 10px" }}
+                onClick={() => setView({ name: "club" })}
+                title="Управление клубом"
+              >
+                <Building2 size={16} />
+              </button>
             <button
               className="btn btn-secondary"
               style={{ width: "auto", padding: "6px 10px" }}
@@ -84,16 +95,17 @@ export default function App() {
             >
               <Users size={16} />
             </button>
-            <button
-              className="btn btn-secondary"
-              style={{ width: "auto", padding: "6px 10px" }}
-              onClick={() => setView({ name: "board" })}
-              title="Настройка табло"
-            >
-              <Tv2 size={16} />
-            </button>
-          </div>
-        )}
+              <button
+                className="btn btn-secondary"
+                style={{ width: "auto", padding: "6px 10px" }}
+                onClick={() => setView({ name: "board" })}
+                title="Настройка табло"
+              >
+                <Tv2 size={16} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {view.name === "list" && (
@@ -126,6 +138,7 @@ export default function App() {
       {view.name === "staff" && <StaffSettings onClose={closeToList} />}
       {view.name === "board" && <BoardSettings onClose={closeToList} />}
       {view.name === "club" && <ClubSettings onClose={closeToList} />}
+      {view.name === "scan" && <ScanCheckin onClose={closeToList} />}
     </>
   );
 }
