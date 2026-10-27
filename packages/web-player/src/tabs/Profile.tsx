@@ -1,5 +1,19 @@
 import { useEffect, useState } from "react";
-import { Download, Trophy, Lock, Bell, Mail, Check, Trash2, Pencil } from "lucide-react";
+import {
+  Download,
+  Trophy,
+  Lock,
+  Bell,
+  Mail,
+  Check,
+  Trash2,
+  Pencil,
+  Percent,
+  Target,
+  Zap,
+  Medal,
+  Gamepad2,
+} from "lucide-react";
 import { apiGet, apiPost } from "../lib/api.js";
 import type { ProfileResponse } from "../lib/types.js";
 import { formatDateShort } from "../lib/format.js";
@@ -150,26 +164,44 @@ export default function Profile({
       <strong className="small muted">СТАТИСТИКА</strong>
       <div className="stat-grid" style={{ margin: "10px 0 20px" }}>
         <div className="stat-tile">
+          <div className="icon">
+            <Percent size={18} />
+          </div>
           <div className="value">{stats.winRate}%</div>
           <div className="label">Win rate</div>
         </div>
         <div className="stat-tile">
+          <div className="icon">
+            <Target size={18} />
+          </div>
           <div className="value">{stats.avgPlace?.toFixed(1) ?? "—"}</div>
           <div className="label">Ср. позиция</div>
         </div>
         <div className="stat-tile">
+          <div className="icon">
+            <Zap size={18} />
+          </div>
           <div className="value">{stats.totalRps}</div>
           <div className="label">RPS собрано</div>
         </div>
         <div className="stat-tile">
+          <div className="icon">
+            <Medal size={18} />
+          </div>
           <div className="value">{stats.bestPlace ?? "—"}</div>
           <div className="label">Лучшее место</div>
         </div>
         <div className="stat-tile">
+          <div className="icon">
+            <Trophy size={18} />
+          </div>
           <div className="value">{stats.top3Count}</div>
           <div className="label">Топ-3</div>
         </div>
         <div className="stat-tile">
+          <div className="icon">
+            <Gamepad2 size={18} />
+          </div>
           <div className="value">{stats.gamesPlayed}</div>
           <div className="label">Игр в клубе</div>
         </div>

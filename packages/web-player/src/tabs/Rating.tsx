@@ -4,6 +4,7 @@ import { apiGet } from "../lib/api.js";
 import type { RatingResponse } from "../lib/types.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import Avatar from "../components/Avatar.js";
+import SectionHeading from "../components/SectionHeading.js";
 
 const TIER_ICONS: Record<string, LucideIcon> = {
   Newbie: Sprout,
@@ -34,10 +35,7 @@ export default function Rating({ active }: { active: boolean }) {
 
   return (
     <div className="section">
-      <div style={{ marginBottom: 6, fontSize: 11, color: "var(--muted)", letterSpacing: "0.04em" }}>
-        — PROGRESS
-      </div>
-      <strong>Ранги</strong>
+      <SectionHeading eyebrow="PROGRESS" title="Ранги" />
       <div className="chip-row" style={{ margin: "10px 0 20px", gap: 14 }}>
         {data.rankTiers.map((tier) => {
           const Icon = tierIcon(tier.name);
@@ -66,20 +64,14 @@ export default function Rating({ active }: { active: boolean }) {
         })}
       </div>
 
-      <div style={{ marginBottom: 6, fontSize: 11, color: "var(--muted)", letterSpacing: "0.04em" }}>
-        — LEADERBOARD
-      </div>
-      <strong>Пьедестал</strong>
+      <SectionHeading eyebrow="LEADERBOARD" title="Пьедестал" />
       <div className="row" style={{ alignItems: "flex-end", gap: 10, margin: "14px 0 20px" }}>
         {data.podium[1] && <Podium row={data.podium[1]} place={2} />}
         {data.podium[0] && <Podium row={data.podium[0]} place={1} big />}
         {data.podium[2] && <Podium row={data.podium[2]} place={3} />}
       </div>
 
-      <div style={{ marginBottom: 6, fontSize: 11, color: "var(--muted)", letterSpacing: "0.04em" }}>
-        — STANDINGS
-      </div>
-      <strong>Таблица рейтинга</strong>
+      <SectionHeading eyebrow="STANDINGS" title="Таблица рейтинга" />
       <div className="row-list" style={{ marginTop: 10, marginBottom: 20 }}>
         {data.standings.map((row) => (
           <div className="row-item" key={row.playerId}>

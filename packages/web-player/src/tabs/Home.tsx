@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { QrCode, User, ChevronRight, type LucideIcon } from "lucide-react";
 import { apiGet } from "../lib/api.js";
 import type { ProfileResponse, TournamentSummary } from "../lib/types.js";
 import { formatDateShort, formatMoney } from "../lib/format.js";
@@ -48,13 +49,9 @@ export default function Home({ active, onOpenTournament, onNavigate }: {
         <span className="badge badge-gold">{profile?.rankProgress.current?.name ?? "NEWBIE"}</span>
       </div>
 
-      <div className="row" style={{ gap: 10, marginBottom: 16 }}>
-        <button className="btn btn-secondary" onClick={() => onNavigate("profile")}>
-          📷 Мой QR
-        </button>
-        <button className="btn btn-secondary" onClick={() => onNavigate("profile")}>
-          🔍 Сканировать QR
-        </button>
+      <div className="quick-grid" style={{ marginBottom: 16 }}>
+        <QuickCard icon={QrCode} title="Мой QR" subtitle="Для чек-ина" onClick={() => onNavigate("profile")} />
+        <QuickCard icon={User} title="Профиль" subtitle="Карта, статистика" onClick={() => onNavigate("profile")} />
       </div>
 
       {nextTournament ? (
@@ -64,6 +61,31 @@ export default function Home({ active, onOpenTournament, onNavigate }: {
       ) : (
         <div className="empty">Нет запланированных турниров</div>
       )}
+    </div>
+  );
+}
+
+function QuickCard({
+  icon: Icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="quick-card" onClick={onClick}>
+      <div className="icon-badge">
+        <Icon size={20} strokeWidth={1.8} />
+      </div>
+      <button className="chevron-btn" onClick={onClick} tabIndex={-1} aria-hidden="true">
+        <ChevronRight size={14} />
+      </button>
+      <div className="title">{title}</div>
+      <div className="subtitle">{subtitle}</div>
     </div>
   );
 }

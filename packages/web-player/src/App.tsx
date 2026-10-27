@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { authenticate, setToken } from "./lib/api.js";
 import Header, { type ClubInfo } from "./components/Header.js";
+import LoadingScreen from "./components/LoadingScreen.js";
 import BottomNav, { type Tab } from "./components/BottomNav.js";
 import Home from "./tabs/Home.js";
 import Tournaments from "./tabs/Tournaments.js";
@@ -42,7 +43,7 @@ export default function App() {
       .catch((err) => setAuth({ status: "error", message: String(err) }));
   }, []);
 
-  if (auth.status === "loading") return <div className="loading">Входим…</div>;
+  if (auth.status === "loading") return <LoadingScreen text="ВХОДИМ…" />;
   if (auth.status === "error") return <div className="loading">{auth.message}</div>;
   if (auth.status === "deleted") {
     return <div className="loading">Ваши данные удалены. Чтобы начать заново, откройте бота ещё раз.</div>;
