@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Settings, Users, Tv2 } from "lucide-react";
+import { Settings, Users, Tv2, Building2 } from "lucide-react";
 import { authenticate, setToken, apiGet } from "./lib/api.js";
 import TournamentList from "./views/TournamentList.js";
 import TournamentForm from "./views/TournamentForm.js";
@@ -7,6 +7,7 @@ import LiveConsole from "./views/LiveConsole.js";
 import PublishResults from "./views/PublishResults.js";
 import StaffSettings from "./views/StaffSettings.js";
 import BoardSettings from "./views/BoardSettings.js";
+import ClubSettings from "./views/ClubSettings.js";
 
 type AuthState =
   | { status: "loading" }
@@ -20,7 +21,8 @@ type View =
   | { name: "live"; id: string }
   | { name: "publish"; id: string }
   | { name: "staff" }
-  | { name: "board" };
+  | { name: "board" }
+  | { name: "club" };
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
@@ -66,6 +68,14 @@ export default function App() {
         </div>
         {auth.role === "owner" && (
           <div className="row" style={{ gap: 6, width: "auto" }}>
+            <button
+              className="btn btn-secondary"
+              style={{ width: "auto", padding: "6px 10px" }}
+              onClick={() => setView({ name: "club" })}
+              title="Управление клубом"
+            >
+              <Building2 size={16} />
+            </button>
             <button
               className="btn btn-secondary"
               style={{ width: "auto", padding: "6px 10px" }}
@@ -115,6 +125,7 @@ export default function App() {
       )}
       {view.name === "staff" && <StaffSettings onClose={closeToList} />}
       {view.name === "board" && <BoardSettings onClose={closeToList} />}
+      {view.name === "club" && <ClubSettings onClose={closeToList} />}
     </>
   );
 }

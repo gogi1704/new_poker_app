@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { authenticate, setToken } from "./lib/api.js";
-import Header from "./components/Header.js";
+import Header, { type ClubInfo } from "./components/Header.js";
 import BottomNav, { type Tab } from "./components/BottomNav.js";
 import Home from "./tabs/Home.js";
 import Tournaments from "./tabs/Tournaments.js";
@@ -17,6 +17,7 @@ type AuthState =
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
+  const [club, setClub] = useState<ClubInfo | null>(null);
   const [tab, setTab] = useState<Tab>("home");
   const [openTournamentId, setOpenTournamentId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -35,6 +36,7 @@ export default function App() {
     authenticate(initData)
       .then((data) => {
         setToken(data.token);
+        setClub(data.club);
         setAuth({ status: "ready" });
       })
       .catch((err) => setAuth({ status: "error", message: String(err) }));
@@ -48,7 +50,7 @@ export default function App() {
 
   return (
     <>
-      <Header />
+      <Header club={club} />
       {tab === "home" && <Home key={refreshKey} onOpenTournament={setOpenTournamentId} onNavigate={setTab} />}
       {tab === "tournaments" && <Tournaments key={refreshKey} onOpen={setOpenTournamentId} />}
       {tab === "results" && <Results />}

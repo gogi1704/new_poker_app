@@ -60,5 +60,9 @@ export async function authenticate(initData: string) {
     body: JSON.stringify({ initData }),
   });
   if (!res.ok) throw new Error(`auth failed: ${res.status}`);
-  return res.json() as Promise<{ token: string; player: { id: string; nickname: string } }>;
+  return res.json() as Promise<{
+    token: string;
+    player: { id: string; nickname: string };
+    club: { name: string; logoUrl: string | null } | null;
+  }>;
 }

@@ -79,6 +79,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
       expiresIn: "24h",
     });
 
-    return { token, player };
+    return {
+      token,
+      player,
+      club: club ? { name: club.name, logoUrl: club.logoUrl } : null,
+    };
   });
 }
