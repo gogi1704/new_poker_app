@@ -10,18 +10,32 @@ import { exportMembershipCard } from "../lib/exportCard.js";
 import { confirmDialog } from "../lib/telegram.js";
 import CheckinQr from "../components/CheckinQr.js";
 import type { ClubInfo } from "../components/Header.js";
+import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 
-export default function Profile({ club, onDeleted }: { club: ClubInfo | null; onDeleted: () => void }) {
+export default function Profile({
+  active,
+  club,
+  onDeleted,
+}: {
+  active: boolean;
+  club: ClubInfo | null;
+  onDeleted: () => void;
+}) {
   const [data, setData] = useState<ProfileResponse | null>(null);
   const [notifsEnabled, setNotifsEnabled] = useState<boolean | null>(null);
   const [notifsSaving, setNotifsSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
 
+  function load() {
+    return apiGet<ProfileResponse>("/api/profile").then(setData);
+  }
+
   useEffect(() => {
-    apiGet<ProfileResponse>("/api/profile").then(setData);
+    load();
     apiGet<{ enabled: boolean }>("/api/settings/notifications").then((r) => setNotifsEnabled(r.enabled));
   }, []);
+  useRevalidateOnActive(active, load);
 
   async function toggleNotifications(next: boolean) {
     setNotifsSaving(true);

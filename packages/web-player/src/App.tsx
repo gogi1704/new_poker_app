@@ -55,19 +55,24 @@ export default function App() {
           data once, so switching tabs afterward is instant instead of
           re-fetching (and flashing a loading state) on every click. */}
       <div style={{ display: tab === "home" ? "block" : "none" }}>
-        <Home key={refreshKey} onOpenTournament={setOpenTournamentId} onNavigate={setTab} />
+        <Home key={refreshKey} active={tab === "home"} onOpenTournament={setOpenTournamentId} onNavigate={setTab} />
       </div>
       <div style={{ display: tab === "tournaments" ? "block" : "none" }}>
-        <Tournaments key={refreshKey} onOpen={setOpenTournamentId} />
+        <Tournaments key={refreshKey} active={tab === "tournaments"} onOpen={setOpenTournamentId} />
       </div>
       <div style={{ display: tab === "results" ? "block" : "none" }}>
-        <Results />
+        <Results active={tab === "results"} />
       </div>
       <div style={{ display: tab === "rating" ? "block" : "none" }}>
-        <Rating />
+        <Rating active={tab === "rating"} />
       </div>
       <div style={{ display: tab === "profile" ? "block" : "none" }}>
-        <Profile key={refreshKey} club={club} onDeleted={() => setAuth({ status: "deleted" })} />
+        <Profile
+          key={refreshKey}
+          active={tab === "profile"}
+          club={club}
+          onDeleted={() => setAuth({ status: "deleted" })}
+        />
       </div>
       <BottomNav active={tab} onChange={setTab} />
       {openTournamentId && (

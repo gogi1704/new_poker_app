@@ -3,18 +3,22 @@ import { apiGet } from "../lib/api.js";
 import type { TournamentSummary } from "../lib/types.js";
 import { formatDateShort, formatLabel, formatMoney } from "../lib/format.js";
 import { useCountdown } from "../lib/useCountdown.js";
+import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 
-export default function Tournaments({ onOpen }: { onOpen: (id: string) => void }) {
+export default function Tournaments({ active, onOpen }: { active: boolean; onOpen: (id: string) => void }) {
   const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "mine">("all");
   const [formatFilter, setFormatFilter] = useState<string | null>(null);
 
+  function load() {
+    return apiGet<TournamentSummary[]>("/api/tournaments").then(setTournaments);
+  }
+
   useEffect(() => {
-    apiGet<TournamentSummary[]>("/api/tournaments")
-      .then(setTournaments)
-      .finally(() => setLoading(false));
+    load().finally(() => setLoading(false));
   }, []);
+  useRevalidateOnActive(active, load);
 
   const formats = useMemo(() => [...new Set(tournaments.map((t) => t.format))], [tournaments]);
 

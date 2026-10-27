@@ -3,10 +3,12 @@ import { apiGet } from "../lib/api.js";
 import type { ProfileResponse, TournamentSummary } from "../lib/types.js";
 import { formatDateShort, formatMoney } from "../lib/format.js";
 import { useCountdown } from "../lib/useCountdown.js";
+import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import type { Tab } from "../components/BottomNav.js";
 import Avatar from "../components/Avatar.js";
 
-export default function Home({ onOpenTournament, onNavigate }: {
+export default function Home({ active, onOpenTournament, onNavigate }: {
+  active: boolean;
   onOpenTournament: (id: string) => void;
   onNavigate: (tab: Tab) => void;
 }) {
@@ -14,17 +16,20 @@ export default function Home({ onOpenTournament, onNavigate }: {
   const [nextTournament, setNextTournament] = useState<TournamentSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
+  function load() {
+    return Promise.all([
       apiGet<ProfileResponse>("/api/profile").catch(() => null),
       apiGet<TournamentSummary[]>("/api/tournaments"),
-    ])
-      .then(([p, tournaments]) => {
-        setProfile(p);
-        setNextTournament(tournaments[0] ?? null);
-      })
-      .finally(() => setLoading(false));
+    ]).then(([p, tournaments]) => {
+      setProfile(p);
+      setNextTournament(tournaments[0] ?? null);
+    });
+  }
+
+  useEffect(() => {
+    load().finally(() => setLoading(false));
   }, []);
+  useRevalidateOnActive(active, load);
 
   if (loading) return <div className="loading">Загрузка…</div>;
 

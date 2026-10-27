@@ -2,16 +2,22 @@ import { useEffect, useState } from "react";
 import { apiGet } from "../lib/api.js";
 import type { ResultDetail, ResultsOverview } from "../lib/types.js";
 import { formatDateShort, formatLabel, formatMoney } from "../lib/format.js";
+import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import Avatar from "../components/Avatar.js";
 
-export default function Results() {
+export default function Results({ active }: { active: boolean }) {
   const [overview, setOverview] = useState<ResultsOverview | null>(null);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  function load() {
+    return apiGet<ResultsOverview>("/api/results").then(setOverview);
+  }
+
   useEffect(() => {
-    apiGet<ResultsOverview>("/api/results").then(setOverview);
+    load();
   }, []);
+  useRevalidateOnActive(active, load);
 
   if (!overview) return <div className="loading">Загрузка…</div>;
 

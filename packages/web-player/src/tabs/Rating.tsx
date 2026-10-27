@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Sprout, Fish, Repeat2, Swords, BadgeCheck, Crown, Award, type LucideIcon } from "lucide-react";
 import { apiGet } from "../lib/api.js";
 import type { RatingResponse } from "../lib/types.js";
+import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import Avatar from "../components/Avatar.js";
 
 const TIER_ICONS: Record<string, LucideIcon> = {
@@ -17,12 +18,17 @@ function tierIcon(name: string): LucideIcon {
   return TIER_ICONS[name] ?? Award;
 }
 
-export default function Rating() {
+export default function Rating({ active }: { active: boolean }) {
   const [data, setData] = useState<RatingResponse | null>(null);
 
+  function load() {
+    return apiGet<RatingResponse>("/api/rating").then(setData);
+  }
+
   useEffect(() => {
-    apiGet<RatingResponse>("/api/rating").then(setData);
+    load();
   }, []);
+  useRevalidateOnActive(active, load);
 
   if (!data) return <div className="loading">Загрузка…</div>;
 
