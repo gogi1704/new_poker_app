@@ -51,11 +51,24 @@ export default function App() {
   return (
     <>
       <Header club={club} />
-      {tab === "home" && <Home key={refreshKey} onOpenTournament={setOpenTournamentId} onNavigate={setTab} />}
-      {tab === "tournaments" && <Tournaments key={refreshKey} onOpen={setOpenTournamentId} />}
-      {tab === "results" && <Results />}
-      {tab === "rating" && <Rating />}
-      {tab === "profile" && <Profile key={refreshKey} club={club} onDeleted={() => setAuth({ status: "deleted" })} />}
+      {/* All tabs stay mounted and are just shown/hidden — each fetches its
+          data once, so switching tabs afterward is instant instead of
+          re-fetching (and flashing a loading state) on every click. */}
+      <div style={{ display: tab === "home" ? "block" : "none" }}>
+        <Home key={refreshKey} onOpenTournament={setOpenTournamentId} onNavigate={setTab} />
+      </div>
+      <div style={{ display: tab === "tournaments" ? "block" : "none" }}>
+        <Tournaments key={refreshKey} onOpen={setOpenTournamentId} />
+      </div>
+      <div style={{ display: tab === "results" ? "block" : "none" }}>
+        <Results />
+      </div>
+      <div style={{ display: tab === "rating" ? "block" : "none" }}>
+        <Rating />
+      </div>
+      <div style={{ display: tab === "profile" ? "block" : "none" }}>
+        <Profile key={refreshKey} club={club} onDeleted={() => setAuth({ status: "deleted" })} />
+      </div>
       <BottomNav active={tab} onChange={setTab} />
       {openTournamentId && (
         <TournamentDetail
