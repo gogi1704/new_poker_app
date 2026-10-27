@@ -55,7 +55,7 @@ export default function App() {
       {tab === "tournaments" && <Tournaments key={refreshKey} onOpen={setOpenTournamentId} />}
       {tab === "results" && <Results />}
       {tab === "rating" && <Rating />}
-      {tab === "profile" && <Profile key={refreshKey} onDeleted={() => setAuth({ status: "deleted" })} />}
+      {tab === "profile" && <Profile key={refreshKey} club={club} onDeleted={() => setAuth({ status: "deleted" })} />}
       <BottomNav active={tab} onChange={setTab} />
       {openTournamentId && (
         <TournamentDetail

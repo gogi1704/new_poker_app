@@ -9,8 +9,9 @@ import ProfileEditor from "../components/ProfileEditor.js";
 import { exportMembershipCard } from "../lib/exportCard.js";
 import { confirmDialog } from "../lib/telegram.js";
 import CheckinQr from "../components/CheckinQr.js";
+import type { ClubInfo } from "../components/Header.js";
 
-export default function Profile({ onDeleted }: { onDeleted: () => void }) {
+export default function Profile({ club, onDeleted }: { club: ClubInfo | null; onDeleted: () => void }) {
   const [data, setData] = useState<ProfileResponse | null>(null);
   const [notifsEnabled, setNotifsEnabled] = useState<boolean | null>(null);
   const [notifsSaving, setNotifsSaving] = useState(false);
@@ -92,7 +93,7 @@ export default function Profile({ onDeleted }: { onDeleted: () => void }) {
           <div className="small muted">УРОВЕНЬ УЧАСТНИКА</div>
           <div style={{ fontSize: 20, fontWeight: 800, margin: "4px 0 16px" }}>{membership.memberLevel}</div>
           <div className="row">
-            <span className="small">МОЙ ПОКЕР КЛУБ</span>
+            <span className="small">{(club?.name ?? "Мой Покер Клуб").toUpperCase()}</span>
             <span className="small muted">КАРТА {membership.cardId.slice(0, 8).toUpperCase()}</span>
           </div>
         </div>
@@ -104,7 +105,7 @@ export default function Profile({ onDeleted }: { onDeleted: () => void }) {
           style={{ marginBottom: 14 }}
           onClick={() =>
             exportMembershipCard({
-              clubName: "Мой Покер Клуб",
+              clubName: club?.name ?? "Мой Покер Клуб",
               memberLevel: membership.memberLevel,
               nickname: player.nickname,
               cardId: membership.cardId,
