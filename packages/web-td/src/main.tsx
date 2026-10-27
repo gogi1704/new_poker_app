@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.js";
 import ClockDisplay from "./views/ClockDisplay.js";
+import ErrorBoundary from "./components/ErrorBoundary.js";
 import "./styles.css";
 
 // No router needed for two routes: a plain path check. /clock/:id is public
@@ -10,5 +11,7 @@ import "./styles.css";
 const clockMatch = window.location.pathname.match(/^\/clock\/([^/]+)/);
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>{clockMatch ? <ClockDisplay tournamentId={clockMatch[1]} /> : <App />}</StrictMode>,
+  <StrictMode>
+    <ErrorBoundary>{clockMatch ? <ClockDisplay tournamentId={clockMatch[1]} /> : <App />}</ErrorBoundary>
+  </StrictMode>,
 );
