@@ -265,9 +265,10 @@ body {
 }
 
 .btn-primary {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
+  background: linear-gradient(165deg, #e8c37a, #8c6a2f);
+  color: #211705;
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(140, 106, 47, 0.35);
 }
 
 .btn-secondary {

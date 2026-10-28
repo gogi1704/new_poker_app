@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { X, Repeat, Users, Zap, Check, UserPlus } from "lucide-react";
 import { apiGet, apiPost } from "../lib/api.js";
 import type { TournamentDetail as TournamentDetailT } from "../lib/types.js";
 import { formatDateTime, formatLabel, formatMoney } from "../lib/format.js";
 import { useCountdown } from "../lib/useCountdown.js";
 import Avatar from "../components/Avatar.js";
+
+const ROMAN = ["I", "II", "III"];
 
 export default function TournamentDetail({
   id,
@@ -59,7 +62,7 @@ export default function TournamentDetail({
         <div className="row" style={{ marginBottom: 10 }}>
           <span className="badge badge-gold">{tournament ? formatLabel(tournament.format) : "…"}</span>
           <button className="btn btn-secondary" style={{ width: "auto", padding: "6px 12px" }} onClick={onClose}>
-            ✕
+            <X size={16} />
           </button>
         </div>
 
@@ -85,7 +88,10 @@ export default function TournamentDetail({
 
             {(tournament.reentryPrice || tournament.addonPrice || tournament.arriveBonusStack > 0) && (
               <div className="card" style={{ marginBottom: 14 }}>
-                <strong className="small">🔁 Дополнительные опции</strong>
+                <div className="row small" style={{ justifyContent: "flex-start", gap: 6 }}>
+                  <Repeat size={14} color="var(--accent)" />
+                  <strong>Дополнительные опции</strong>
+                </div>
                 <div className="row-list" style={{ marginTop: 8 }}>
                   {tournament.reentryPrice && (
                     <div className="row small">
@@ -110,17 +116,30 @@ export default function TournamentDetail({
             )}
 
             <div className="card" style={{ marginBottom: 14 }}>
-              <strong className="small">👥 Участники ({tournament.participants.length})</strong>
-              <div className="row-list" style={{ marginTop: 8 }}>
+              <div className="row small" style={{ justifyContent: "flex-start", gap: 6 }}>
+                <Users size={14} color="var(--accent)" />
+                <strong>Участники ({tournament.participants.length})</strong>
+              </div>
+              <div className="row-list" style={{ marginTop: 10 }}>
                 {tournament.participants.length === 0 && <div className="muted small">Пока никто не записался</div>}
                 {tournament.participants.map((p, i) => (
-                  <div className="row-item" key={p.playerId}>
-                    <div className="row" style={{ gap: 8 }}>
-                      <span className="rank-medal">{i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
-                      <Avatar nickname={p.nickname} avatarUrl={p.avatarUrl} />
-                      <span>{p.nickname}</span>
+                  <div className="standing-row" key={p.playerId}>
+                    <div className="row" style={{ gap: 12, justifyContent: "flex-start", minWidth: 0 }}>
+                      <span className={`standing-rank ${i === 0 ? "gold" : i < 3 ? "outline" : "plain"}`}>
+                        {i < 3 ? ROMAN[i] : i + 1}
+                      </span>
+                      <Avatar
+                        nickname={p.nickname}
+                        avatarUrl={p.avatarUrl}
+                        size={52}
+                        style={{ marginLeft: i < 3 ? -16 : 0, zIndex: 2, border: "2px solid var(--bg)" }}
+                      />
+                      <div className="standing-name">{p.nickname}</div>
                     </div>
-                    <span className="badge">{p.totalRps} RPS</span>
+                    <span className="standing-trend">
+                      <Zap size={16} />
+                      {p.totalRps} RPS
+                    </span>
                   </div>
                 ))}
               </div>
@@ -129,7 +148,8 @@ export default function TournamentDetail({
             {tournament.myRegistration && tournament.myRegistration.status !== "cancelled" ? (
               <>
                 <button className="btn btn-secondary" disabled={submitting}>
-                  ✓ Вы записаны
+                  <Check size={16} style={{ marginRight: 6, verticalAlign: -3 }} />
+                  Вы записаны
                 </button>
                 <button
                   className="small muted"
@@ -146,11 +166,16 @@ export default function TournamentDetail({
                 disabled={submitting || tournament.participants.length >= tournament.maxSeats}
                 onClick={handleRegister}
               >
-                {submitting
-                  ? "Записываем…"
-                  : tournament.participants.length >= tournament.maxSeats
-                    ? "Мест нет"
-                    : "✍️ Записаться на турнир"}
+                {submitting ? (
+                  "Записываем…"
+                ) : tournament.participants.length >= tournament.maxSeats ? (
+                  "Мест нет"
+                ) : (
+                  <>
+                    <UserPlus size={16} style={{ marginRight: 6, verticalAlign: -3 }} />
+                    Записаться на турнир
+                  </>
+                )}
               </button>
             )}
             {registerError && (
