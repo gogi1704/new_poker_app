@@ -647,10 +647,164 @@ body {
 }
 
 .rank-medal {
-  width: 22px;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: linear-gradient(165deg, #e8c37a, #8c6a2f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #2b1d08;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.avatar-ring-static {
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 50%;
+  padding: 2px;
+  border: 2px solid var(--accent-border);
+}
+
+.rating-row-header {
+  display: grid;
+  grid-template-columns: 30px 1fr 56px 64px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-bottom: 8px;
+  background: var(--card-2);
+  border-radius: 12px;
+}
+
+.rating-row {
+  display: grid;
+  grid-template-columns: 30px 1fr 56px 64px;
+  align-items: center;
+  gap: 10px;
+}
+
+.podium-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 36px 0 20px;
+}
+
+.podium-card {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  border-radius: 18px;
+  padding: 32px 8px 16px;
+  text-align: center;
+  background: linear-gradient(165deg, #1d212a, #14161c);
+  box-shadow: var(--shadow-card);
+}
+
+.podium-card.first {
+  padding-top: 40px;
+  background: linear-gradient(165deg, #e8c37a, #8c6a2f);
+  box-shadow: 0 16px 34px rgba(140, 106, 47, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.podium-card .nickname {
   font-weight: 700;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podium-card.first .nickname {
+  color: #2b1d08;
+}
+
+.podium-card .rps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-weight: 800;
+  font-size: 13px;
   color: var(--accent);
+}
+
+.podium-card.first .rps {
+  color: #2b1d08;
+}
+
+.podium-avatar-wrap {
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.podium-rank-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(165deg, #fff4d6, #e8c37a);
+  border: 2px solid var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #2b1d08;
+}
+
+.tier-circle {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 6px;
+  cursor: pointer;
+  background: linear-gradient(165deg, #22221e, #121210);
+  border: 1px solid var(--accent-border);
+  box-shadow: var(--shadow-tile);
+  transition: transform 0.15s ease;
+}
+
+.tier-circle:active {
+  transform: scale(0.93);
+}
+
+.tier-circle.locked {
+  background: linear-gradient(165deg, #1b1b1b, #101010);
+  border-color: var(--border);
+}
+
+.tier-circle.locked svg {
+  opacity: 0.35;
+}
+
+.tier-lock-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--card-2);
+  border: 2px solid var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
 }
 
 .modal-overlay {
