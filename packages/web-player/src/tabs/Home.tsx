@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { QrCode, User, ChevronRight, type LucideIcon } from "lucide-react";
 import { apiGet } from "../lib/api.js";
 import type { ProfileResponse, TournamentSummary } from "../lib/types.js";
-import { formatDateShort, formatMoney } from "../lib/format.js";
-import { useCountdown } from "../lib/useCountdown.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import type { Tab } from "../components/BottomNav.js";
 import UserPanel from "../components/UserPanel.js";
+import TournamentCard from "../components/TournamentCard.js";
 
 export default function Home({ active, onOpenTournament, onNavigate }: {
   active: boolean;
@@ -44,9 +43,7 @@ export default function Home({ active, onOpenTournament, onNavigate }: {
       </div>
 
       {nextTournament ? (
-        <div className="tournament-card" onClick={() => onOpenTournament(nextTournament.id)}>
-          <Banner tournament={nextTournament} />
-        </div>
+        <TournamentCard tournament={nextTournament} onClick={() => onOpenTournament(nextTournament.id)} />
       ) : (
         <div className="empty">Нет запланированных турниров</div>
       )}
@@ -75,24 +72,6 @@ function QuickCard({
       </button>
       <div className="title">{title}</div>
       <div className="subtitle">{subtitle}</div>
-    </div>
-  );
-}
-
-function Banner({ tournament }: { tournament: TournamentSummary }) {
-  const cd = useCountdown(tournament.scheduledAt);
-  return (
-    <div className="banner">
-      <div className="tag">АФИША · {formatDateShort(tournament.scheduledAt)}</div>
-      <div className="title">{tournament.name}</div>
-      <div className="small muted" style={{ marginTop: 10 }}>
-        {cd.isPast
-          ? "Турнир начался"
-          : `До старта: ${cd.days > 0 ? cd.days + "д " : ""}${String(cd.hours).padStart(2, "0")}:${String(cd.minutes).padStart(2, "0")}:${String(cd.seconds).padStart(2, "0")}`}
-      </div>
-      <div className="small" style={{ marginTop: 6 }}>
-        Взнос {formatMoney(tournament.buyIn)} · Стек {tournament.startingStack.toLocaleString("ru-RU")}
-      </div>
     </div>
   );
 }

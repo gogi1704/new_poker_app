@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Trophy, Activity, Users, Star, Banknote, Layers, type LucideIcon } from "lucide-react";
+import { Trophy, Activity, Users, Star, type LucideIcon } from "lucide-react";
 import { apiGet } from "../lib/api.js";
 import type { TournamentSummary } from "../lib/types.js";
-import { formatDateShort, formatLabel, formatMoney } from "../lib/format.js";
-import { useCountdown } from "../lib/useCountdown.js";
+import { formatLabel } from "../lib/format.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
+import TournamentCard from "../components/TournamentCard.js";
 
 export default function Tournaments({ active, onOpen }: { active: boolean; onOpen: (id: string) => void }) {
   const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
@@ -93,39 +93,6 @@ function StatTile({ icon: Icon, value, label }: { icon?: LucideIcon; value: numb
       )}
       <div className="value">{value}</div>
       <div className="label">{label}</div>
-    </div>
-  );
-}
-
-function TournamentCard({ tournament, onClick }: { tournament: TournamentSummary; onClick: () => void }) {
-  const cd = useCountdown(tournament.scheduledAt);
-  const seatsFilled = Number(tournament.seatsFilled);
-  const fillPercent = Math.min(100, Math.round((seatsFilled / tournament.maxSeats) * 100));
-
-  return (
-    <div className="tournament-card" onClick={onClick}>
-      <div className="banner">
-        <div className="tag">
-          {formatLabel(tournament.format)} {tournament.isMine && "· ⭐ Я ЗАПИСАН"}
-        </div>
-        <div className="title">{tournament.name}</div>
-        <div className="small muted" style={{ marginTop: 10 }}>
-          {formatDateShort(tournament.scheduledAt)} ·{" "}
-          {cd.isPast
-            ? "идёт"
-            : `${cd.days > 0 ? cd.days + "д " : ""}${String(cd.hours).padStart(2, "0")}:${String(cd.minutes).padStart(2, "0")}`}
-        </div>
-      </div>
-      <div className="section" style={{ paddingTop: 10 }}>
-        <div className="stat-grid" style={{ marginBottom: 10 }}>
-          <StatTile icon={Banknote} value={Number(tournament.buyIn)} label="Взнос ₽" />
-          <StatTile icon={Layers} value={tournament.startingStack / 1000} label="Стек K" />
-          <StatTile icon={Users} value={seatsFilled} label={`из ${tournament.maxSeats}`} />
-        </div>
-        <div className="progress-bar">
-          <div className="fill" style={{ width: `${fillPercent}%` }} />
-        </div>
-      </div>
     </div>
   );
 }
