@@ -515,7 +515,7 @@ body {
 .tc-art-panel {
   position: relative;
   flex: 1;
-  min-height: 192px;
+  min-height: 212px;
 }
 
 .tc-art-svg {
@@ -573,15 +573,15 @@ body {
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
+  gap: 5px;
+  padding: 6px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(10, 10, 10, 0.55);
+  background: rgba(10, 10, 10, 0.4);
   backdrop-filter: blur(3px);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   white-space: nowrap;
 }
 
@@ -617,12 +617,12 @@ body {
 .tc-name {
   margin-top: auto;
   padding-top: 10px;
-  max-width: 76%;
-  font-size: 27px;
+  max-width: 72%;
+  font-size: 30px;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.12;
   text-transform: uppercase;
-  background: linear-gradient(180deg, #fff 48%, rgba(255, 255, 255, 0.32) 100%);
+  background: linear-gradient(180deg, #fff 46%, rgba(255, 255, 255, 0.2) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
