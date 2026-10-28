@@ -1179,6 +1179,7 @@ body {
   position: absolute;
   bottom: -2px;
   right: -2px;
+  z-index: 2;
   width: 22px;
   height: 22px;
   border-radius: 50%;
