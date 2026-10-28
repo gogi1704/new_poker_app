@@ -145,7 +145,7 @@ function ResultStandings({ tournamentId }: { tournamentId: string }) {
   const ROMAN = ["I", "II", "III"];
 
   return (
-    <div className="section" style={{ paddingTop: 0 }}>
+    <div style={{ padding: "0 16px 14px" }}>
       <div className="row-list">
         {detail.standings.map((s, i) => (
           <div className="standing-row" key={s.playerId}>
@@ -157,7 +157,7 @@ function ResultStandings({ tournamentId }: { tournamentId: string }) {
                 nickname={s.nickname}
                 avatarUrl={s.avatarUrl}
                 size={52}
-                style={{ marginLeft: -16, zIndex: 2, border: "2px solid var(--bg)" }}
+                style={{ marginLeft: i < 3 ? -16 : 0, zIndex: 2, border: "2px solid var(--bg)" }}
               />
               <div style={{ minWidth: 0 }}>
                 <div className="standing-name">

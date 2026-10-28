@@ -5,7 +5,10 @@ import type { ProfileResponse, TournamentSummary } from "../lib/types.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import type { Tab } from "../components/BottomNav.js";
 import UserPanel from "../components/UserPanel.js";
-import TournamentCard from "../components/TournamentCard.js";
+import TournamentCarousel from "../components/TournamentCarousel.js";
+import SectionHeading from "../components/SectionHeading.js";
+
+const CAROUSEL_SIZE = 5;
 
 export default function Home({ active, onOpenTournament, onNavigate }: {
   active: boolean;
@@ -13,7 +16,7 @@ export default function Home({ active, onOpenTournament, onNavigate }: {
   onNavigate: (tab: Tab) => void;
 }) {
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
-  const [nextTournament, setNextTournament] = useState<TournamentSummary | null>(null);
+  const [upcoming, setUpcoming] = useState<TournamentSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   function load() {
@@ -22,7 +25,7 @@ export default function Home({ active, onOpenTournament, onNavigate }: {
       apiGet<TournamentSummary[]>("/api/tournaments"),
     ]).then(([p, tournaments]) => {
       setProfile(p);
-      setNextTournament(tournaments[0] ?? null);
+      setUpcoming(tournaments.slice(0, CAROUSEL_SIZE));
     });
   }
 
@@ -42,8 +45,9 @@ export default function Home({ active, onOpenTournament, onNavigate }: {
         <QuickCard icon={User} title="Профиль" subtitle="Карта, статистика" onClick={() => onNavigate("profile")} />
       </div>
 
-      {nextTournament ? (
-        <TournamentCard tournament={nextTournament} onClick={() => onOpenTournament(nextTournament.id)} />
+      <SectionHeading eyebrow="AFISHA" title="Афиша" />
+      {upcoming.length > 0 ? (
+        <TournamentCarousel tournaments={upcoming} onOpen={onOpenTournament} />
       ) : (
         <div className="empty">Нет запланированных турниров</div>
       )}
