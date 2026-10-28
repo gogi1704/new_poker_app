@@ -1393,3 +1393,137 @@ body {
   gap: 6px;
   color: var(--accent);
 }
+
+.mc-flip {
+  perspective: 1400px;
+  cursor: pointer;
+}
+
+.mc-inner {
+  position: relative;
+  min-height: 300px;
+  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.mc-flip.flipped .mc-inner {
+  transform: rotateY(180deg);
+}
+
+.mc-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 20px;
+  border: 1px solid var(--accent-border);
+  background: linear-gradient(160deg, #221d10, #120f08);
+  box-shadow: var(--shadow-card);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mc-back {
+  transform: rotateY(180deg);
+}
+
+.mc-front-top {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+}
+
+.mc-qr-wrap {
+  width: 128px;
+  height: 128px;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.mc-front-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mc-club-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.mc-club-logo-round {
+  border-radius: 50%;
+}
+
+.mc-club-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(165deg, #e8c37a, #8c6a2f);
+  color: #211705;
+  font-weight: 800;
+}
+
+.mc-club-name {
+  font-weight: 800;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mc-card-id {
+  margin-top: 10px;
+  font-family: "Roboto Condensed", monospace;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.mc-flip-hint {
+  text-align: center;
+  margin-top: 10px;
+}
+
+.mc-level {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.mc-underline {
+  width: 40px;
+  height: 2px;
+  background: var(--accent-border);
+  margin: 8px 0;
+}
+
+.mc-back-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.mc-back-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.mc-back-actions .btn {
+  font-size: 12px;
+  padding: 11px 8px;
+}

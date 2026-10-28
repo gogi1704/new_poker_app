@@ -71,6 +71,82 @@ export function exportMembershipCard(data: CardData) {
   link.click();
 }
 
+/**
+ * Same card as exportMembershipCard, but with the check-in QR embedded
+ * in the corner so the exported image alone is enough to check in.
+ */
+export function exportMembershipCardWithQr(data: CardData, qrDataUrl: string | undefined) {
+  if (!qrDataUrl) {
+    exportMembershipCard(data);
+    return;
+  }
+
+  const width = 900;
+  const height = 560;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const bg = ctx.createLinearGradient(0, 0, width, height);
+  bg.addColorStop(0, "#2a2412");
+  bg.addColorStop(1, "#15130a");
+  ctx.fillStyle = bg;
+  roundRect(ctx, 0, 0, width, height, 28);
+  ctx.fill();
+
+  ctx.strokeStyle = "#e8b23d";
+  ctx.lineWidth = 3;
+  roundRect(ctx, 8, 8, width - 16, height - 16, 24);
+  ctx.stroke();
+
+  const qrSize = 300;
+  const qrX = width - qrSize - 56;
+  const qrY = (height - qrSize) / 2;
+
+  ctx.fillStyle = "#9aa0ab";
+  ctx.font = "600 22px sans-serif";
+  ctx.fillText("УРОВЕНЬ УЧАСТНИКА", 48, 70);
+
+  ctx.fillStyle = "#f2f3f5";
+  ctx.font = "800 44px sans-serif";
+  ctx.fillText(data.memberLevel, 48, 128);
+
+  ctx.strokeStyle = "rgba(232,178,61,0.4)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(48, 200);
+  ctx.lineTo(qrX - 32, 200);
+  ctx.stroke();
+
+  ctx.fillStyle = "#9aa0ab";
+  ctx.font = "600 18px sans-serif";
+  ctx.fillText(data.clubName.toUpperCase(), 48, 250);
+
+  ctx.fillStyle = "#f2f3f5";
+  ctx.font = "800 32px sans-serif";
+  ctx.fillText(data.nickname, 48, 296);
+
+  ctx.fillStyle = "#9aa0ab";
+  ctx.font = "16px monospace";
+  ctx.fillText(`КАРТА ${data.cardId.slice(0, 8).toUpperCase()}`, 48, height - 48);
+
+  ctx.fillStyle = "#fff";
+  roundRect(ctx, qrX - 12, qrY - 12, qrSize + 24, qrSize + 24, 14);
+  ctx.fill();
+
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+    const link = document.createElement("a");
+    link.download = `card-${data.nickname}-qr.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+  img.src = qrDataUrl;
+}
+
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);

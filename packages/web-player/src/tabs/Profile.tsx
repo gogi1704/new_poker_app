@@ -1,27 +1,13 @@
 import { useEffect, useState } from "react";
-import {
-  Download,
-  Trophy,
-  Lock,
-  Bell,
-  Mail,
-  Check,
-  Trash2,
-  Percent,
-  Target,
-  Zap,
-  Medal,
-  Gamepad2,
-} from "lucide-react";
+import { Trophy, Lock, Bell, Mail, Check, Trash2, Percent, Target, Zap, Medal, Gamepad2 } from "lucide-react";
 import { apiGet, apiPost } from "../lib/api.js";
 import type { ProfileResponse } from "../lib/types.js";
 import { formatDateShort } from "../lib/format.js";
 import Toggle from "../components/Toggle.js";
 import UserPanel from "../components/UserPanel.js";
 import ProfileEditor from "../components/ProfileEditor.js";
-import { exportMembershipCard } from "../lib/exportCard.js";
+import MembershipCard from "../components/MembershipCard.js";
 import { confirmDialog } from "../lib/telegram.js";
-import CheckinQr from "../components/CheckinQr.js";
 import type { ClubInfo } from "../components/Header.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 
@@ -97,44 +83,8 @@ export default function Profile({
       <UserPanel profile={data} onEdit={() => setEditing(true)} />
 
       {membership && (
-        <div
-          className="card"
-          style={{
-            marginBottom: 14,
-            background: "linear-gradient(135deg, #2a2412, #15130a)",
-            border: "1px solid var(--accent)",
-          }}
-        >
-          <div className="small muted">УРОВЕНЬ УЧАСТНИКА</div>
-          <div style={{ fontSize: 20, fontWeight: 800, margin: "4px 0 16px" }}>{membership.memberLevel}</div>
-          <div className="row">
-            <span className="small">{(club?.name ?? "Мой Покер Клуб").toUpperCase()}</span>
-            <span className="small muted">КАРТА {membership.cardId.slice(0, 8).toUpperCase()}</span>
-          </div>
-        </div>
-      )}
-
-      {membership && (
-        <button
-          className="btn btn-secondary"
-          style={{ marginBottom: 14 }}
-          onClick={() =>
-            exportMembershipCard({
-              clubName: club?.name ?? "Мой Покер Клуб",
-              memberLevel: membership.memberLevel,
-              nickname: player.nickname,
-              cardId: membership.cardId,
-            })
-          }
-        >
-          <Download size={16} style={{ marginRight: 6, verticalAlign: -3 }} />
-          Скачать карту
-        </button>
-      )}
-
-      {membership && (
         <div style={{ marginBottom: 14 }}>
-          <CheckinQr />
+          <MembershipCard nickname={player.nickname} club={club} membership={membership} />
         </div>
       )}
 
