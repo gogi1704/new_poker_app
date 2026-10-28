@@ -145,7 +145,7 @@ function ResultStandings({ tournamentId }: { tournamentId: string }) {
   const ROMAN = ["I", "II", "III"];
 
   return (
-    <div style={{ padding: "0 16px 14px" }}>
+    <div style={{ padding: "10px 16px 14px" }}>
       <div className="row-list">
         {detail.standings.map((s, i) => (
           <div className="standing-row" key={s.playerId}>
