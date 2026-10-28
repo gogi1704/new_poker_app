@@ -35,12 +35,14 @@ body {
   margin: 0;
   background-color: var(--bg);
   background-image:
-    radial-gradient(circle at 50% 20%, rgba(140, 106, 47, 0.12), transparent 65%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Ctext x='14' y='46' font-size='34' fill='%238c6a2f' fill-opacity='0.05' font-family='Georgia,serif' transform='rotate(-12 14 46)'%3E%E2%99%A0%3C/text%3E%3Ctext x='96' y='78' font-size='26' fill='%238c6a2f' fill-opacity='0.04' font-family='Georgia,serif' transform='rotate(10 96 78)'%3E%E2%99%A6%3C/text%3E%3Ctext x='36' y='136' font-size='28' fill='%238c6a2f' fill-opacity='0.045' font-family='Georgia,serif' transform='rotate(-6 36 136)'%3E%E2%99%A3%3C/text%3E%3Ctext x='118' y='162' font-size='24' fill='%238c6a2f' fill-opacity='0.04' font-family='Georgia,serif' transform='rotate(14 118 162)'%3E%E2%99%A5%3C/text%3E%3C/svg%3E");
-  background-repeat: no-repeat, repeat;
-  background-position: center top, center;
-  background-attachment: fixed, fixed;
-  background-size: auto, 180px 180px;
+    radial-gradient(ellipse at 50% 0%, rgba(140, 106, 47, 0.22), transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(140, 106, 47, 0.1), transparent 55%),
+    radial-gradient(ellipse 120% 70% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.55) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='190'%3E%3Ctext x='12' y='48' font-size='38' fill='%238c6a2f' fill-opacity='0.13' font-family='Georgia,serif' transform='rotate(-12 12 48)'%3E%E2%99%A0%3C/text%3E%3Ctext x='100' y='82' font-size='30' fill='%238c6a2f' fill-opacity='0.11' font-family='Georgia,serif' transform='rotate(10 100 82)'%3E%E2%99%A6%3C/text%3E%3Ctext x='36' y='144' font-size='32' fill='%238c6a2f' fill-opacity='0.12' font-family='Georgia,serif' transform='rotate(-6 36 144)'%3E%E2%99%A3%3C/text%3E%3Ctext x='124' y='170' font-size='28' fill='%238c6a2f' fill-opacity='0.11' font-family='Georgia,serif' transform='rotate(14 124 170)'%3E%E2%99%A5%3C/text%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-position: center top, center bottom, center, center;
+  background-attachment: fixed, fixed, fixed, fixed;
+  background-size: 100% 60%, 100% 50%, 100% 100%, 190px 190px;
   color: var(--text);
   font-family: "Roboto Condensed", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
@@ -108,7 +110,9 @@ body {
 }
 
 .card {
-  background: linear-gradient(165deg, rgba(140, 106, 47, 0.17), rgba(140, 106, 47, 0.08));
+  background: linear-gradient(165deg, rgba(140, 106, 47, 0.07), rgba(140, 106, 47, 0.02));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 2px solid var(--accent-border);
   border-radius: 18px;
   padding: 14px;
@@ -129,7 +133,9 @@ body {
   height: 44px;
   flex-shrink: 0;
   border-radius: 12px;
-  background: linear-gradient(165deg, #22221e, #121210);
+  background: rgba(10, 9, 6, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--accent-border);
   display: flex;
   align-items: center;
@@ -146,7 +152,9 @@ body {
 
 .quick-card {
   position: relative;
-  background: linear-gradient(165deg, rgba(140, 106, 47, 0.17), rgba(140, 106, 47, 0.08));
+  background: linear-gradient(165deg, rgba(140, 106, 47, 0.07), rgba(140, 106, 47, 0.02));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 2px solid var(--accent-border);
   border-radius: 18px;
   padding: 14px;
@@ -168,7 +176,7 @@ body {
   height: 26px;
   border-radius: 50%;
   border: 1px solid var(--border);
-  background: linear-gradient(165deg, #22221e, #121210);
+  background: rgba(10, 9, 6, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,7 +204,10 @@ body {
 
 .stat-tile {
   position: relative;
-  background: linear-gradient(165deg, #1d212a, #14161c);
+  background: linear-gradient(165deg, rgba(29, 33, 42, 0.4), rgba(20, 22, 28, 0.25));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
   padding: 18px 8px;
   text-align: center;
@@ -420,7 +431,9 @@ body {
 }
 
 .tournament-card {
-  background: linear-gradient(165deg, rgba(140, 106, 47, 0.17), rgba(140, 106, 47, 0.08));
+  background: linear-gradient(165deg, rgba(140, 106, 47, 0.07), rgba(140, 106, 47, 0.02));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(140, 106, 47, 0.35);
   border-radius: 24px;
   padding: 18px;
@@ -928,7 +941,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(165deg, #22221e, #121210);
+  background: rgba(10, 9, 6, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--accent-border);
   color: var(--accent);
   font-size: 14px;
@@ -1087,7 +1102,7 @@ body {
   gap: 10px;
   padding: 8px 14px;
   margin-bottom: 8px;
-  background: var(--card-2);
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
 }
 
@@ -1112,7 +1127,10 @@ body {
   border-radius: 18px;
   padding: 32px 8px 16px;
   text-align: center;
-  background: linear-gradient(165deg, #1d212a, #14161c);
+  background: linear-gradient(165deg, rgba(29, 33, 42, 0.4), rgba(20, 22, 28, 0.25));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: var(--shadow-card);
 }
 
@@ -1183,7 +1201,9 @@ body {
   justify-content: center;
   margin: 0 auto 6px;
   cursor: pointer;
-  background: linear-gradient(165deg, #22221e, #121210);
+  background: rgba(10, 9, 6, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--accent-border);
   box-shadow: var(--shadow-tile);
   transition: transform 0.15s ease;
@@ -1194,7 +1214,7 @@ body {
 }
 
 .tier-circle.locked {
-  background: linear-gradient(165deg, #1b1b1b, #101010);
+  background: rgba(10, 9, 6, 0.2);
   border-color: var(--border);
 }
 
