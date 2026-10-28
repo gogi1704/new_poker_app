@@ -1527,3 +1527,64 @@ body {
   font-size: 12px;
   padding: 11px 8px;
 }
+
+.standing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.standing-rank {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.standing-rank.gold {
+  background: linear-gradient(165deg, #e8c37a, #8c6a2f);
+  color: #211705;
+}
+
+.standing-rank.outline {
+  background: rgba(10, 9, 6, 0.35);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+}
+
+.standing-rank.plain {
+  width: auto;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.standing-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.standing-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-weight: 800;
+  flex-shrink: 0;
+}

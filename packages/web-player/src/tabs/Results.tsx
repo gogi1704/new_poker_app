@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Trophy, Calendar, Users, Coins, Swords, Crown, ChevronDown } from "lucide-react";
+import { Trophy, Calendar, Users, Coins, Swords, Crown, ChevronDown, TrendingUp } from "lucide-react";
 import { apiGet } from "../lib/api.js";
 import type { ResultDetail, ResultsListTournament, ResultsOverview } from "../lib/types.js";
 import { formatDateShort, formatLabel, formatMoney } from "../lib/format.js";
@@ -142,24 +142,33 @@ function ResultStandings({ tournamentId }: { tournamentId: string }) {
 
   if (!detail) return <div className="loading">Загрузка…</div>;
 
+  const ROMAN = ["I", "II", "III"];
+
   return (
     <div className="section" style={{ paddingTop: 0 }}>
       <div className="row-list">
         {detail.standings.map((s, i) => (
-          <div className="row-item" key={s.playerId}>
-            <div className="row" style={{ gap: 8 }}>
-              <span className="rank-medal">{i < 3 ? ["🥇", "🥈", "🥉"][i] : s.place}</span>
+          <div className="standing-row" key={s.playerId}>
+            <div className="row" style={{ gap: 10, justifyContent: "flex-start", minWidth: 0 }}>
+              <span className={`standing-rank ${i === 0 ? "gold" : i < 3 ? "outline" : "plain"}`}>
+                {i < 3 ? ROMAN[i] : s.place}
+              </span>
               <Avatar nickname={s.nickname} avatarUrl={s.avatarUrl} />
-              <div>
-                <div className="small">{s.nickname}</div>
+              <div style={{ minWidth: 0 }}>
+                <div className="standing-name">
+                  {s.nickname}
+                  {i === 0 && <Crown size={13} color="var(--accent)" />}
+                </div>
                 {s.knockoutsCount > 0 && (
                   <div className="small muted">
-                    💀 {s.knockoutsCount} +{s.bountyPoints}
+                    {s.knockoutsCount} KO · +{s.bountyPoints}
                   </div>
                 )}
               </div>
             </div>
-            <span className="badge badge-gold">+{s.rpsAwarded}</span>
+            <span className="standing-trend">
+              <TrendingUp size={14} />+{s.rpsAwarded}
+            </span>
           </div>
         ))}
       </div>
