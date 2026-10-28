@@ -149,15 +149,20 @@ function ResultStandings({ tournamentId }: { tournamentId: string }) {
       <div className="row-list">
         {detail.standings.map((s, i) => (
           <div className="standing-row" key={s.playerId}>
-            <div className="row" style={{ gap: 10, justifyContent: "flex-start", minWidth: 0 }}>
+            <div className="row" style={{ gap: 12, justifyContent: "flex-start", minWidth: 0 }}>
               <span className={`standing-rank ${i === 0 ? "gold" : i < 3 ? "outline" : "plain"}`}>
                 {i < 3 ? ROMAN[i] : s.place}
               </span>
-              <Avatar nickname={s.nickname} avatarUrl={s.avatarUrl} />
+              <Avatar
+                nickname={s.nickname}
+                avatarUrl={s.avatarUrl}
+                size={52}
+                style={{ marginLeft: -16, zIndex: 2, border: "2px solid var(--bg)" }}
+              />
               <div style={{ minWidth: 0 }}>
                 <div className="standing-name">
                   {s.nickname}
-                  {i === 0 && <Crown size={13} color="var(--accent)" />}
+                  {i === 0 && <Crown size={15} color="var(--accent)" />}
                 </div>
                 {s.knockoutsCount > 0 && (
                   <div className="small muted">
@@ -167,7 +172,7 @@ function ResultStandings({ tournamentId }: { tournamentId: string }) {
               </div>
             </div>
             <span className="standing-trend">
-              <TrendingUp size={14} />+{s.rpsAwarded}
+              <TrendingUp size={16} />+{s.rpsAwarded}
             </span>
           </div>
         ))}
