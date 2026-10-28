@@ -407,9 +407,9 @@ body {
 
 .tournament-card {
   background: linear-gradient(165deg, rgba(140, 106, 47, 0.17), rgba(140, 106, 47, 0.08));
-  border: 2px solid var(--accent-border);
-  border-radius: 20px;
-  padding: 16px;
+  border: 1px solid rgba(140, 106, 47, 0.35);
+  border-radius: 24px;
+  padding: 18px;
   margin-bottom: 14px;
   cursor: pointer;
   box-shadow: var(--shadow-card);
@@ -421,22 +421,44 @@ body {
 }
 
 .tc-ticket {
+  position: relative;
   display: flex;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
   border: 1px solid var(--accent-border);
   box-shadow: var(--shadow-tile);
 }
 
+.tc-ticket::before,
+.tc-ticket::after {
+  content: "";
+  position: absolute;
+  left: 80px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #15130d;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+
+.tc-ticket::before {
+  top: -8px;
+}
+
+.tc-ticket::after {
+  bottom: -8px;
+}
+
 .tc-date-stub {
-  width: 78px;
+  width: 80px;
   flex-shrink: 0;
-  padding: 16px 10px;
+  padding: 18px 12px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  background: linear-gradient(165deg, #1c1c1c, #0d0d0d);
-  border-right: 1px dashed var(--border);
+  background: linear-gradient(165deg, #1a1a1a, #0b0b0b);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tc-eyebrow-line {
@@ -459,14 +481,14 @@ body {
 }
 
 .tc-weekday {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
   margin-top: 4px;
 }
 
 .tc-day {
-  font-size: 38px;
+  font-size: 52px;
   font-weight: 800;
   line-height: 1;
   color: #fff;
@@ -493,7 +515,7 @@ body {
 .tc-art-panel {
   position: relative;
   flex: 1;
-  min-height: 168px;
+  min-height: 192px;
 }
 
 .tc-art-svg {
@@ -530,12 +552,12 @@ body {
 .format-chip {
   display: inline-flex;
   align-items: center;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
-  border: 1px solid var(--accent-border);
-  background: rgba(10, 10, 10, 0.55);
+  border: 1px solid rgba(232, 195, 122, 0.55);
+  background: rgba(10, 10, 10, 0.3);
   backdrop-filter: blur(3px);
-  color: var(--accent);
+  color: #e8c37a;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -595,12 +617,12 @@ body {
 .tc-name {
   margin-top: auto;
   padding-top: 10px;
-  max-width: 78%;
-  font-size: 19px;
+  max-width: 76%;
+  font-size: 27px;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.15;
   text-transform: uppercase;
-  background: linear-gradient(180deg, #fff 45%, rgba(255, 255, 255, 0.4) 100%);
+  background: linear-gradient(180deg, #fff 48%, rgba(255, 255, 255, 0.32) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -630,7 +652,7 @@ body {
 }
 
 .tc-stat-value {
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 800;
   margin-top: 4px;
 }
@@ -672,6 +694,12 @@ body {
 
 .tc-progress {
   margin-top: 10px;
+  height: 8px;
+  border-radius: 6px;
+}
+
+.tc-progress .fill {
+  border-radius: 6px;
 }
 
 .tc-cta {
@@ -681,7 +709,7 @@ body {
   gap: 8px;
   width: 100%;
   margin-top: 16px;
-  padding: 13px;
+  padding: 16px;
   border-radius: 999px;
   background: linear-gradient(165deg, #1c1c1c, #101010);
   border: 1px solid var(--accent-border);

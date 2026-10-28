@@ -92,7 +92,7 @@ export default function TournamentCard({
       <div className="tc-seats-row">
         <span className="tc-meta-item">
           <Users size={13} color="var(--accent)" />
-          {seatsFilled}/{tournament.maxSeats}
+          {seatsFilled} / {tournament.maxSeats}
         </span>
         <span className="tc-remaining">ОСТАЛОСЬ {remaining}</span>
       </div>
