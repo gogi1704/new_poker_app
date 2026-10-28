@@ -10,6 +10,8 @@
   --accent-border: rgba(140, 106, 47, 0.19);
   --danger: #ff6b6b;
   --success: #4ade80;
+  --shadow-card: 0 14px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-tile: 0 8px 18px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 * {
@@ -100,10 +102,11 @@ body {
 }
 
 .card {
-  background: var(--accent-tint);
+  background: linear-gradient(165deg, rgba(140, 106, 47, 0.17), rgba(140, 106, 47, 0.08));
   border: 2px solid var(--accent-border);
   border-radius: 18px;
   padding: 14px;
+  box-shadow: var(--shadow-card);
 }
 
 .eyebrow {
@@ -120,12 +123,13 @@ body {
   height: 44px;
   flex-shrink: 0;
   border-radius: 12px;
-  background: var(--card-2);
+  background: linear-gradient(165deg, #22221e, #121210);
   border: 1px solid var(--accent-border);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--accent);
+  box-shadow: var(--shadow-tile);
 }
 
 .quick-grid {
@@ -136,12 +140,18 @@ body {
 
 .quick-card {
   position: relative;
-  background: var(--accent-tint);
+  background: linear-gradient(165deg, rgba(140, 106, 47, 0.17), rgba(140, 106, 47, 0.08));
   border: 2px solid var(--accent-border);
   border-radius: 18px;
   padding: 14px;
   text-align: left;
   cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.15s ease;
+}
+
+.quick-card:active {
+  transform: scale(0.97);
 }
 
 .quick-card .chevron-btn {
@@ -152,11 +162,12 @@ body {
   height: 26px;
   border-radius: 50%;
   border: 1px solid var(--border);
-  background: transparent;
+  background: linear-gradient(165deg, #22221e, #121210);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--muted);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .quick-card .title {
@@ -178,10 +189,11 @@ body {
 }
 
 .stat-tile {
-  background: var(--card-2);
+  background: linear-gradient(165deg, #1d212a, #14161c);
   border-radius: 14px;
   padding: 16px 8px;
   text-align: center;
+  box-shadow: var(--shadow-tile);
 }
 
 .stat-tile .icon {
@@ -287,12 +299,13 @@ body {
 }
 
 .tournament-card {
-  background: var(--accent-tint);
+  background: linear-gradient(165deg, rgba(140, 106, 47, 0.17), rgba(140, 106, 47, 0.08));
   border: 2px solid var(--accent-border);
   border-radius: 16px;
   overflow: hidden;
   margin-bottom: 12px;
   cursor: pointer;
+  box-shadow: var(--shadow-card);
 }
 
 .tournament-card .banner {
