@@ -7,7 +7,6 @@ import {
   Mail,
   Check,
   Trash2,
-  Pencil,
   Percent,
   Target,
   Zap,
@@ -18,7 +17,7 @@ import { apiGet, apiPost } from "../lib/api.js";
 import type { ProfileResponse } from "../lib/types.js";
 import { formatDateShort } from "../lib/format.js";
 import Toggle from "../components/Toggle.js";
-import Avatar from "../components/Avatar.js";
+import UserPanel from "../components/UserPanel.js";
 import ProfileEditor from "../components/ProfileEditor.js";
 import { exportMembershipCard } from "../lib/exportCard.js";
 import { confirmDialog } from "../lib/telegram.js";
@@ -95,19 +94,7 @@ export default function Profile({
         />
       )}
 
-      <div className="row" style={{ marginBottom: 16 }}>
-        <div className="row" style={{ gap: 10 }}>
-          <Avatar nickname={player.nickname} avatarUrl={player.avatarUrl} size={48} fontSize={16} />
-          <strong>{player.nickname}</strong>
-        </div>
-        <button
-          className="btn btn-secondary"
-          style={{ width: "auto", padding: "6px 10px" }}
-          onClick={() => setEditing(true)}
-        >
-          <Pencil size={16} />
-        </button>
-      </div>
+      <UserPanel profile={data} onEdit={() => setEditing(true)} />
 
       {membership && (
         <div
@@ -151,15 +138,11 @@ export default function Profile({
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div className="row small" style={{ marginBottom: 6 }}>
-          <span className="badge badge-gold">{rankProgress.current?.name ?? "NEWBIE"}</span>
-          {rankProgress.next && <span className="muted">→ {rankProgress.next.name} {rankProgress.progressPercent}%</span>}
+      {rankProgress.next && (
+        <div className="small muted" style={{ marginBottom: 14, textAlign: "right" }}>
+          → {rankProgress.next.name} через {100 - rankProgress.progressPercent}%
         </div>
-        <div className="progress-bar">
-          <div className="fill" style={{ width: `${rankProgress.progressPercent}%` }} />
-        </div>
-      </div>
+      )}
 
       <strong className="small muted">СТАТИСТИКА</strong>
       <div className="stat-grid" style={{ margin: "10px 0 20px" }}>

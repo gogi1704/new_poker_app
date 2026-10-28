@@ -6,7 +6,7 @@ import { formatDateShort, formatMoney } from "../lib/format.js";
 import { useCountdown } from "../lib/useCountdown.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import type { Tab } from "../components/BottomNav.js";
-import Avatar from "../components/Avatar.js";
+import UserPanel from "../components/UserPanel.js";
 
 export default function Home({ active, onOpenTournament, onNavigate }: {
   active: boolean;
@@ -36,18 +36,7 @@ export default function Home({ active, onOpenTournament, onNavigate }: {
 
   return (
     <div className="section">
-      <div className="card row" style={{ marginBottom: 12 }}>
-        <div className="row" style={{ gap: 10 }}>
-          <Avatar nickname={profile?.player.nickname ?? "?"} avatarUrl={profile?.player.avatarUrl ?? null} size={48} fontSize={16} />
-          <div>
-            <div style={{ fontWeight: 700 }}>{profile?.player.nickname ?? "Гость"}</div>
-            <div className="small muted">
-              {profile?.rankProgress.current?.name ?? "Newbie"} · {profile?.stats.totalRps ?? 0} RPS
-            </div>
-          </div>
-        </div>
-        <span className="badge badge-gold">{profile?.rankProgress.current?.name ?? "NEWBIE"}</span>
-      </div>
+      {profile && <UserPanel profile={profile} />}
 
       <div className="quick-grid" style={{ marginBottom: 16 }}>
         <QuickCard icon={QrCode} title="Мой QR" subtitle="Для чек-ина" onClick={() => onNavigate("profile")} />
