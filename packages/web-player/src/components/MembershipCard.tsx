@@ -27,7 +27,11 @@ export default function MembershipCard({
       try {
         const { token } = await apiGet<{ token: string }>("/api/profile/checkin-qr");
         if (cancelled || !canvasRef.current) return;
-        await QRCode.toCanvas(canvasRef.current, token, { width: 300, margin: 1 });
+        await QRCode.toCanvas(canvasRef.current, token, {
+          width: 300,
+          margin: 1,
+          color: { dark: "#2a1f10", light: "#f6efdd" },
+        });
         setQrError(false);
       } catch {
         if (!cancelled) setQrError(true);
@@ -72,14 +76,20 @@ export default function MembershipCard({
         <div className="mc-inner">
           <div className="mc-face mc-front">
             <div className="mc-front-top">
-              <div className="mc-qr-wrap">
-                {qrError ? (
-                  <div className="small muted" style={{ padding: 8 }}>
-                    Ошибка
-                  </div>
-                ) : (
-                  <canvas ref={canvasRef} style={{ width: "100%", height: "100%", borderRadius: 10 }} />
-                )}
+              <div className="mc-qr-frame">
+                <div className="mc-qr-corner tl" />
+                <div className="mc-qr-corner tr" />
+                <div className="mc-qr-corner bl" />
+                <div className="mc-qr-corner br" />
+                <div className="mc-qr-wrap">
+                  {qrError ? (
+                    <div className="small muted" style={{ padding: 8 }}>
+                      Ошибка
+                    </div>
+                  ) : (
+                    <canvas ref={canvasRef} style={{ width: "100%", height: "100%", borderRadius: 8 }} />
+                  )}
+                </div>
               </div>
               <div className="mc-front-info">
                 <div className="row" style={{ gap: 8, justifyContent: "flex-start" }}>
@@ -106,6 +116,7 @@ export default function MembershipCard({
           </div>
 
           <div className="mc-face mc-back">
+            <div className="mc-chip" />
             <div className="row" style={{ alignItems: "flex-start" }}>
               <div>
                 <div className="small muted">Уровень участника</div>
