@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { Trophy, Calendar, Users, Coins, Swords, Crown, ChevronDown } from "lucide-react";
 import { apiGet } from "../lib/api.js";
-import type { ResultDetail, ResultsOverview } from "../lib/types.js";
+import type { ResultDetail, ResultsListTournament, ResultsOverview } from "../lib/types.js";
 import { formatDateShort, formatLabel, formatMoney } from "../lib/format.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import Avatar from "../components/Avatar.js";
@@ -55,32 +56,79 @@ export default function Results({ active }: { active: boolean }) {
 
       {filtered.length === 0 && <div className="empty">Ничего не найдено</div>}
       {filtered.map((t) => (
-        <div key={t.id} className="tournament-card" style={{ cursor: "default" }}>
-          <div
-            className="section"
-            style={{ cursor: "pointer" }}
-            onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
-          >
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>{t.name}</div>
-            <div className="row small muted" style={{ marginBottom: 6 }}>
-              <span className="badge">{formatLabel(t.format)}</span>
-              <span>{formatDateShort(t.scheduledAt)}</span>
-            </div>
-            <div className="row small">
-              <span className="muted">
-                👥 {t.playersCount} · {formatMoney(t.buyIn)}
-                {t.format === "knockout" && ` · 💀 ${t.totalKnockouts} KO`}
-              </span>
-              {t.winner && (
-                <span>
-                  👑 {t.winner.nickname}
-                </span>
-              )}
-            </div>
-          </div>
-          {expandedId === t.id && <ResultStandings tournamentId={t.id} />}
-        </div>
+        <ResultCard
+          key={t.id}
+          tournament={t}
+          expanded={expandedId === t.id}
+          onToggle={() => setExpandedId(expandedId === t.id ? null : t.id)}
+        />
       ))}
+    </div>
+  );
+}
+
+function ResultCard({
+  tournament: t,
+  expanded,
+  onToggle,
+}: {
+  tournament: ResultsListTournament;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="rc-card">
+      <div className="rc-head" onClick={onToggle}>
+        <div className="icon-badge rc-icon">
+          <Trophy size={26} strokeWidth={1.6} />
+        </div>
+        <div className="rc-head-text">
+          <div className="rc-title">{t.name}</div>
+          <div className="rc-chip-row">
+            <span className="format-chip">{formatLabel(t.format)}</span>
+          </div>
+          <div className="rc-meta">
+            <span className="rc-meta-item">
+              <Calendar size={13} color="var(--accent)" />
+              {formatDateShort(t.scheduledAt)}
+            </span>
+            <span className="rc-pipe">|</span>
+            <span className="rc-meta-item">
+              <Users size={13} color="var(--accent)" />
+              {t.playersCount}
+            </span>
+          </div>
+          <div className="rc-stats">
+            <span className="rc-pipe">|</span>
+            <span className="rc-stat-item">
+              <Coins size={14} color="var(--accent)" />
+              {formatMoney(t.buyIn)}
+            </span>
+            {t.format === "knockout" && t.totalKnockouts > 0 && (
+              <>
+                <span className="rc-pipe">|</span>
+                <span className="rc-stat-item">
+                  <Swords size={14} color="var(--accent)" />
+                  {t.totalKnockouts} KO
+                </span>
+              </>
+            )}
+            {t.winner && (
+              <>
+                <span className="rc-pipe">|</span>
+                <span className="rc-winner">
+                  <Crown size={14} />
+                  {t.winner.nickname}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className={`rc-chevron ${expanded ? "open" : ""}`}>
+          <ChevronDown size={16} />
+        </div>
+      </div>
+      {expanded && <ResultStandings tournamentId={t.id} />}
     </div>
   );
 }
