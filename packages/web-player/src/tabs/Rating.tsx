@@ -1,10 +1,24 @@
 import { useEffect, useState } from "react";
-import { Sprout, Fish, Repeat2, Swords, BadgeCheck, Crown, Award, Hexagon, Lock, type LucideIcon } from "lucide-react";
+import {
+  Sprout,
+  Fish,
+  Repeat2,
+  Swords,
+  BadgeCheck,
+  Crown,
+  Award,
+  Hexagon,
+  Lock,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { apiGet } from "../lib/api.js";
 import type { RatingResponse, ProfileResponse, RankTier } from "../lib/types.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import Avatar from "../components/Avatar.js";
 import SectionHeading from "../components/SectionHeading.js";
+
+const ROMAN = ["I", "II", "III"];
 
 const TIER_ICONS: Record<string, LucideIcon> = {
   Newbie: Sprout,
@@ -100,31 +114,33 @@ export default function Rating({ active }: { active: boolean }) {
       </div>
 
       <SectionHeading eyebrow="STANDINGS" title="Таблица рейтинга" />
-      <div className="rating-row-header small muted">
-        <span>#</span>
-        <span>ИГРОК</span>
-        <span style={{ textAlign: "right" }}>ПОБЕД</span>
-        <span style={{ textAlign: "right" }}>RPS</span>
-      </div>
-      <div className="row-list" style={{ marginTop: 8, marginBottom: 20 }}>
+      <div className="row-list" style={{ marginBottom: 20 }}>
         {data.standings.map((row) => (
-          <div className="row-item rating-row" key={row.playerId}>
-            <span className="rank-medal">{row.rank}</span>
-            <div className="row" style={{ gap: 10, minWidth: 0, justifyContent: "flex-start" }}>
-              <div className="avatar-ring-static">
-                <Avatar nickname={row.nickname} avatarUrl={row.avatarUrl} />
-              </div>
+          <div className="standing-row" key={row.playerId}>
+            <div className="row" style={{ gap: 12, justifyContent: "flex-start", minWidth: 0 }}>
+              <span className={`standing-rank ${row.rank === 1 ? "gold" : row.rank <= 3 ? "outline" : "plain"}`}>
+                {row.rank <= 3 ? ROMAN[row.rank - 1] : row.rank}
+              </span>
+              <Avatar
+                nickname={row.nickname}
+                avatarUrl={row.avatarUrl}
+                size={52}
+                style={{ marginLeft: row.rank <= 3 ? -16 : 0, zIndex: 2, border: "2px solid var(--bg)" }}
+              />
               <div style={{ minWidth: 0 }}>
-                <div className="small" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div className="standing-name">
                   {row.nickname}
+                  {row.rank === 1 && <Crown size={15} color="var(--accent)" />}
                 </div>
-                <div className="small muted">{row.gamesPlayed} игр</div>
+                <div className="small muted">
+                  {row.gamesPlayed} игр · {row.wins} побед
+                </div>
               </div>
             </div>
-            <div className="small" style={{ textAlign: "right" }}>
-              {row.wins}
-            </div>
-            <strong style={{ color: "var(--accent)", textAlign: "right" }}>{row.totalRps}</strong>
+            <span className="standing-trend">
+              <Zap size={16} />
+              {row.totalRps} RPS
+            </span>
           </div>
         ))}
       </div>
