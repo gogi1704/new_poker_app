@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { useLiveState } from "../lib/useLiveState.js";
 import { useTickingElapsed } from "../lib/useTickingElapsed.js";
 import { formatMMSS } from "../lib/format.js";
+import { renderBoardBlock } from "./boardBlocks.js";
+import type { BoardBlockConfig, BoardBlockZone, LiveState } from "../lib/liveTypes.js";
 
 /**
  * Public, read-only — meant to be opened full-screen on a club TV/monitor.
@@ -66,13 +68,7 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
     );
   }
 
-  const avgStack =
-    state.counts.active > 0
-      ? Math.round((state.tournament.startingStack * state.counts.fieldSize) / state.counts.active)
-      : 0;
-  const payoutEntries = Object.entries(state.payoutPreview)
-    .map(([place, amount]) => ({ place: Number(place), amount }))
-    .sort((a, b) => a.place - b.place);
+  const layout = settings?.layout ?? [];
 
   return (
     <div style={styles.wrap}>
@@ -126,48 +122,39 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
             </div>
           )}
 
-          <div style={styles.statsRow}>
-            <Stat value={state.counts.active} label="игроков" />
-            <Stat value={state.counts.tablesActive} label="столов" />
-            <Stat value={avgStack.toLocaleString("ru-RU")} label="средний стек" />
-            {settings?.showChipLeader && state.chipLeader && (
-              <Stat
-                value={state.chipLeader.stack.toLocaleString("ru-RU")}
-                label={`лидер: ${state.chipLeader.nickname}`}
-              />
-            )}
-          </div>
-
-          {(settings?.showPayoutPreview ?? true) && payoutEntries.length > 0 && (
-            <div style={styles.payoutStrip}>
-              {payoutEntries.map((p) => (
-                <div key={p.place} style={styles.payoutItem}>
-                  <span style={styles.payoutPlace}>{p.place}.</span> {p.amount.toLocaleString("ru-RU")} ₽
-                </div>
-              ))}
-            </div>
-          )}
-
-          {(settings?.showKnockoutTicker ?? true) && state.eliminations.length > 0 && (
-            <div style={styles.ticker}>
-              {state.eliminations.slice(0, 5).map((e) => (
-                <span key={`${e.playerId}-${e.at}`} style={styles.tickerItem}>
-                  {e.place}. {e.nickname}
-                </span>
-              ))}
-            </div>
-          )}
+          <BoardZone zone="top" layout={layout} state={state} accent={accent} />
+          <BoardZone zone="center" layout={layout} state={state} accent={accent} />
+          <BoardZone zone="bottom" layout={layout} state={state} accent={accent} />
         </>
       )}
     </div>
   );
 }
 
-function Stat({ value, label }: { value: number | string; label: string }) {
+function BoardZone({
+  zone,
+  layout,
+  state,
+  accent,
+}: {
+  zone: BoardBlockZone;
+  layout: BoardBlockConfig[];
+  state: LiveState;
+  accent: string;
+}) {
+  const blocks = layout.filter((b) => b.zone === zone);
+  if (blocks.length === 0) return null;
   return (
-    <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: 42, fontWeight: 800 }}>{value}</div>
-      <div style={{ fontSize: 16, color: "#8b98ab", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
+    <div style={styles.zoneRow}>
+      {blocks.map((b, i) => {
+        const content = renderBoardBlock(b.type, state, accent);
+        if (!content) return null;
+        return (
+          <div key={`${b.type}-${i}`} style={{ ...styles.zoneBlock, flexBasis: b.size === 2 ? "100%" : "45%" }}>
+            {content}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -268,18 +255,16 @@ const styles = {
   blinds: { fontSize: 56, fontWeight: 700, marginTop: 20 },
   ante: { color: "#8b98ab", fontSize: 32 },
   next: { fontSize: 20, color: "#8b98ab", marginTop: 16 },
-  statsRow: { display: "flex", gap: 60, marginTop: 60, flexWrap: "wrap" as const, justifyContent: "center" },
-  payoutStrip: { display: "flex", gap: 20, marginTop: 40, flexWrap: "wrap" as const, justifyContent: "center" },
-  payoutItem: {
-    fontSize: 18,
-    color: "#8b98ab",
-    background: "rgba(255,255,255,0.05)",
-    padding: "8px 16px",
-    borderRadius: 10,
+  zoneRow: {
+    display: "flex",
+    gap: 24,
+    marginTop: 40,
+    flexWrap: "wrap" as const,
+    justifyContent: "center",
+    width: "100%",
+    maxWidth: 900,
   },
-  payoutPlace: { color: "#f2f3f5", fontWeight: 700 },
-  ticker: { marginTop: 30, display: "flex", gap: 24, color: "#8b98ab", fontSize: 16, flexWrap: "wrap" as const, justifyContent: "center" },
-  tickerItem: { opacity: 0.85 },
+  zoneBlock: { display: "flex", justifyContent: "center" },
   connDot: (connected: boolean) => ({
     position: "fixed" as const,
     top: 20,

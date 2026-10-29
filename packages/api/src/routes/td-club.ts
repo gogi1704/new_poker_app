@@ -5,13 +5,17 @@ import { schema } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { requireOwner } from "../services/staff.js";
 
+const boardBlockSchema = z.object({
+  type: z.enum(schema.BOARD_BLOCK_TYPES),
+  zone: z.enum(["top", "center", "bottom"]),
+  size: z.union([z.literal(1), z.literal(2)]),
+});
+
 const boardSettingsSchema = z.object({
-  showPayoutPreview: z.boolean(),
-  showKnockoutTicker: z.boolean(),
-  showChipLeader: z.boolean(),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   soundEnabled: z.boolean(),
   soundVolume: z.number().min(0).max(1),
+  layout: z.array(boardBlockSchema).max(schema.BOARD_BLOCK_TYPES.length),
 });
 
 export default async function tdClubRoutes(fastify: FastifyInstance) {
@@ -19,7 +23,7 @@ export default async function tdClubRoutes(fastify: FastifyInstance) {
     const club = await getDefaultClub(fastify.db);
     const staff = await requireOwner(request, reply, fastify.db, club.id);
     if (!staff) return;
-    return club;
+    return { ...club, boardSettings: schema.normalizeBoardSettings(club.boardSettings) };
   });
 
   fastify.put("/api/td/club", async (request, reply) => {

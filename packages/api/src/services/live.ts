@@ -148,6 +148,14 @@ export async function buildLiveState(db: Database, tournamentId: string) {
     },
     clock,
     counts: { checkedIn, active: activeCount, eliminated: eliminatedCount, fieldSize, tablesActive: tables.length },
+    blindLevels: blindLevels.map((l) => ({
+      levelNumber: l.levelNumber,
+      smallBlind: l.smallBlind,
+      bigBlind: l.bigBlind,
+      ante: l.ante,
+      durationMinutes: l.durationMinutes,
+      isBreak: l.isBreak,
+    })),
     tables,
     eliminations: eliminations.reverse(),
     checkinList,
@@ -156,7 +164,7 @@ export async function buildLiveState(db: Database, tournamentId: string) {
     announcement: getAnnouncement(tournamentId),
     winner: winnerRow ? { nickname: winnerRow.nickname } : null,
     board: clubRow
-      ? { clubName: clubRow.name, logoUrl: clubRow.logoUrl, settings: clubRow.boardSettings }
+      ? { clubName: clubRow.name, logoUrl: clubRow.logoUrl, settings: schema.normalizeBoardSettings(clubRow.boardSettings) }
       : null,
   };
 }

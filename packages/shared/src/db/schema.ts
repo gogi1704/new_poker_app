@@ -55,23 +55,89 @@ export const pushTypeEnum = pgEnum("push_type", ["telegram_dm", "web_push"]);
 
 // ---------- core tables ----------
 
+// Every panel the public tournament board (ClockDisplay) can show besides
+// the clock itself, which is always on and not part of the configurable
+// layout. "stats-*" used to be one hardcoded row; they're split into
+// separate block types so a TD can place/size/remove each independently.
+export const BOARD_BLOCK_TYPES = [
+  "stats-players",
+  "stats-tables",
+  "stats-avg-stack",
+  "chip-leader",
+  "payout-preview",
+  "knockout-ticker",
+  "tables-seats",
+  "participants-list",
+  "blind-structure",
+] as const;
+
+export type BoardBlockType = (typeof BOARD_BLOCK_TYPES)[number];
+export type BoardBlockZone = "top" | "center" | "bottom";
+
+export interface BoardBlockConfig {
+  type: BoardBlockType;
+  zone: BoardBlockZone;
+  size: 1 | 2;
+}
+
 export interface BoardSettings {
-  showPayoutPreview: boolean;
-  showKnockoutTicker: boolean;
-  showChipLeader: boolean;
   accentColor: string;
   soundEnabled: boolean;
   soundVolume: number;
+  layout: BoardBlockConfig[];
 }
 
 export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
-  showPayoutPreview: true,
-  showKnockoutTicker: true,
-  showChipLeader: false,
   accentColor: "#8c6a2f",
   soundEnabled: true,
   soundVolume: 0.7,
+  layout: [
+    { type: "stats-players", zone: "top", size: 1 },
+    { type: "stats-tables", zone: "top", size: 1 },
+    { type: "stats-avg-stack", zone: "top", size: 1 },
+    { type: "payout-preview", zone: "bottom", size: 2 },
+    { type: "knockout-ticker", zone: "bottom", size: 2 },
+  ],
 };
+
+/**
+ * Jsonb doesn't migrate itself — a club row saved under the old boolean-flags
+ * shape (showPayoutPreview/showKnockoutTicker/showChipLeader, no layout)
+ * still reads back that way. Call this wherever boardSettings is read so
+ * both old and new rows always come out with a valid `layout`.
+ */
+export function normalizeBoardSettings(raw: unknown): BoardSettings {
+  const r = (raw ?? {}) as Partial<BoardSettings> & {
+    showPayoutPreview?: boolean;
+    showKnockoutTicker?: boolean;
+    showChipLeader?: boolean;
+  };
+  if (Array.isArray(r.layout)) {
+    return {
+      accentColor: r.accentColor ?? DEFAULT_BOARD_SETTINGS.accentColor,
+      soundEnabled: r.soundEnabled ?? DEFAULT_BOARD_SETTINGS.soundEnabled,
+      soundVolume: r.soundVolume ?? DEFAULT_BOARD_SETTINGS.soundVolume,
+      layout: r.layout,
+    };
+  }
+  // Old shape (or nothing stored yet): synthesize a layout from the old
+  // booleans so a club that had, say, the chip leader turned on doesn't
+  // silently lose it on first load after this change ships.
+  const layout: BoardBlockConfig[] = [
+    { type: "stats-players", zone: "top", size: 1 },
+    { type: "stats-tables", zone: "top", size: 1 },
+    { type: "stats-avg-stack", zone: "top", size: 1 },
+    ...(r.showChipLeader ? [{ type: "chip-leader" as const, zone: "top" as const, size: 1 as const }] : []),
+    ...(r.showPayoutPreview ?? true ? [{ type: "payout-preview" as const, zone: "bottom" as const, size: 2 as const }] : []),
+    ...(r.showKnockoutTicker ?? true ? [{ type: "knockout-ticker" as const, zone: "bottom" as const, size: 2 as const }] : []),
+  ];
+  return {
+    accentColor: r.accentColor ?? DEFAULT_BOARD_SETTINGS.accentColor,
+    soundEnabled: r.soundEnabled ?? DEFAULT_BOARD_SETTINGS.soundEnabled,
+    soundVolume: r.soundVolume ?? DEFAULT_BOARD_SETTINGS.soundVolume,
+    layout,
+  };
+}
 
 export const clubs = pgTable("clubs", {
   id: uuid("id").primaryKey().defaultRandom(),

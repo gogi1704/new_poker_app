@@ -49,13 +49,32 @@ export interface BoardAnnouncement {
   expiresAt: string;
 }
 
+export const BOARD_BLOCK_TYPES = [
+  "stats-players",
+  "stats-tables",
+  "stats-avg-stack",
+  "chip-leader",
+  "payout-preview",
+  "knockout-ticker",
+  "tables-seats",
+  "participants-list",
+  "blind-structure",
+] as const;
+
+export type BoardBlockType = (typeof BOARD_BLOCK_TYPES)[number];
+export type BoardBlockZone = "top" | "center" | "bottom";
+
+export interface BoardBlockConfig {
+  type: BoardBlockType;
+  zone: BoardBlockZone;
+  size: 1 | 2;
+}
+
 export interface BoardSettings {
-  showPayoutPreview: boolean;
-  showKnockoutTicker: boolean;
-  showChipLeader: boolean;
   accentColor: string;
   soundEnabled: boolean;
   soundVolume: number;
+  layout: BoardBlockConfig[];
 }
 
 export interface BoardInfo {
@@ -86,6 +105,7 @@ export interface LiveState {
     fieldSize: number;
     tablesActive: number;
   };
+  blindLevels: BlindLevel[];
   tables: LiveTable[];
   eliminations: LiveElimination[];
   checkinList: CheckinEntry[];
