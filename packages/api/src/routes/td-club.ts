@@ -6,16 +6,21 @@ import { getDefaultClub } from "../services/club.js";
 import { requireOwner } from "../services/staff.js";
 
 const boardBlockSchema = z.object({
+  id: z.string().min(1).max(100),
   type: z.enum(schema.BOARD_BLOCK_TYPES),
-  zone: z.enum(["top", "center", "bottom"]),
-  size: z.union([z.literal(1), z.literal(2)]),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  width: z.number().min(1).max(100),
+  height: z.number().min(1).max(100),
+  text: z.string().max(200).optional(),
+  fontSize: z.number().min(8).max(200).optional(),
 });
 
 const boardSettingsSchema = z.object({
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   soundEnabled: z.boolean(),
   soundVolume: z.number().min(0).max(1),
-  layout: z.array(boardBlockSchema).max(schema.BOARD_BLOCK_TYPES.length),
+  layout: z.array(boardBlockSchema).max(40),
 });
 
 export default async function tdClubRoutes(fastify: FastifyInstance) {

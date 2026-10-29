@@ -50,6 +50,7 @@ export interface BoardAnnouncement {
 }
 
 export const BOARD_BLOCK_TYPES = [
+  "clock",
   "stats-players",
   "stats-tables",
   "stats-avg-stack",
@@ -59,15 +60,20 @@ export const BOARD_BLOCK_TYPES = [
   "tables-seats",
   "participants-list",
   "blind-structure",
+  "custom-text",
 ] as const;
 
 export type BoardBlockType = (typeof BOARD_BLOCK_TYPES)[number];
-export type BoardBlockZone = "top" | "center" | "bottom";
 
 export interface BoardBlockConfig {
+  id: string;
   type: BoardBlockType;
-  zone: BoardBlockZone;
-  size: 1 | 2;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  text?: string;
+  fontSize?: number;
 }
 
 export interface BoardSettings {

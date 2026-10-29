@@ -55,11 +55,13 @@ export const pushTypeEnum = pgEnum("push_type", ["telegram_dm", "web_push"]);
 
 // ---------- core tables ----------
 
-// Every panel the public tournament board (ClockDisplay) can show besides
-// the clock itself, which is always on and not part of the configurable
-// layout. "stats-*" used to be one hardcoded row; they're split into
-// separate block types so a TD can place/size/remove each independently.
+// Every panel the public tournament board (ClockDisplay) can show, including
+// the clock itself — it's just the default block, not special-cased, so a TD
+// can move/resize/remove it like anything else. "stats-*" used to be one
+// hardcoded row; they're split into separate block types so each can be
+// placed independently. "custom-text" is free-form TD-authored text.
 export const BOARD_BLOCK_TYPES = [
+  "clock",
   "stats-players",
   "stats-tables",
   "stats-avg-stack",
@@ -69,15 +71,25 @@ export const BOARD_BLOCK_TYPES = [
   "tables-seats",
   "participants-list",
   "blind-structure",
+  "custom-text",
 ] as const;
 
 export type BoardBlockType = (typeof BOARD_BLOCK_TYPES)[number];
-export type BoardBlockZone = "top" | "center" | "bottom";
 
+// Freeform canvas, not a grid: x/y/width/height are all percentages of the
+// board's own box (0-100), so a layout drawn at one resolution still makes
+// sense on a TV at a different one. x/y are the block's top-left corner.
 export interface BoardBlockConfig {
+  id: string;
   type: BoardBlockType;
-  zone: BoardBlockZone;
-  size: 1 | 2;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** "custom-text" only. */
+  text?: string;
+  /** "custom-text" only, px. */
+  fontSize?: number;
 }
 
 export interface BoardSettings {
@@ -92,50 +104,33 @@ export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
   soundEnabled: true,
   soundVolume: 0.7,
   layout: [
-    { type: "stats-players", zone: "top", size: 1 },
-    { type: "stats-tables", zone: "top", size: 1 },
-    { type: "stats-avg-stack", zone: "top", size: 1 },
-    { type: "payout-preview", zone: "bottom", size: 2 },
-    { type: "knockout-ticker", zone: "bottom", size: 2 },
+    { id: "clock", type: "clock", x: 25, y: 4, width: 50, height: 48 },
+    { id: "stats-players", type: "stats-players", x: 3, y: 55, width: 16, height: 14 },
+    { id: "stats-tables", type: "stats-tables", x: 21, y: 55, width: 16, height: 14 },
+    { id: "stats-avg-stack", type: "stats-avg-stack", x: 39, y: 55, width: 16, height: 14 },
+    { id: "payout-preview", type: "payout-preview", x: 3, y: 72, width: 44, height: 13 },
+    { id: "knockout-ticker", type: "knockout-ticker", x: 3, y: 87, width: 94, height: 11 },
   ],
 };
 
 /**
- * Jsonb doesn't migrate itself — a club row saved under the old boolean-flags
- * shape (showPayoutPreview/showKnockoutTicker/showChipLeader, no layout)
- * still reads back that way. Call this wherever boardSettings is read so
- * both old and new rows always come out with a valid `layout`.
+ * Jsonb doesn't migrate itself, and the board layout has already changed
+ * shape once (a zone/size slot system, briefly live, before this freeform
+ * x/y/width/height canvas). Anything not already in the current freeform
+ * shape — the original boolean flags, the zone/size shape, or nothing
+ * stored yet — just resets to the default layout rather than trying to
+ * carry forward a slot-based arrangement that has no sensible freeform
+ * equivalent; the one-club admin can always re-arrange from there.
  */
 export function normalizeBoardSettings(raw: unknown): BoardSettings {
-  const r = (raw ?? {}) as Partial<BoardSettings> & {
-    showPayoutPreview?: boolean;
-    showKnockoutTicker?: boolean;
-    showChipLeader?: boolean;
-  };
-  if (Array.isArray(r.layout)) {
-    return {
-      accentColor: r.accentColor ?? DEFAULT_BOARD_SETTINGS.accentColor,
-      soundEnabled: r.soundEnabled ?? DEFAULT_BOARD_SETTINGS.soundEnabled,
-      soundVolume: r.soundVolume ?? DEFAULT_BOARD_SETTINGS.soundVolume,
-      layout: r.layout,
-    };
-  }
-  // Old shape (or nothing stored yet): synthesize a layout from the old
-  // booleans so a club that had, say, the chip leader turned on doesn't
-  // silently lose it on first load after this change ships.
-  const layout: BoardBlockConfig[] = [
-    { type: "stats-players", zone: "top", size: 1 },
-    { type: "stats-tables", zone: "top", size: 1 },
-    { type: "stats-avg-stack", zone: "top", size: 1 },
-    ...(r.showChipLeader ? [{ type: "chip-leader" as const, zone: "top" as const, size: 1 as const }] : []),
-    ...(r.showPayoutPreview ?? true ? [{ type: "payout-preview" as const, zone: "bottom" as const, size: 2 as const }] : []),
-    ...(r.showKnockoutTicker ?? true ? [{ type: "knockout-ticker" as const, zone: "bottom" as const, size: 2 as const }] : []),
-  ];
+  const r = (raw ?? {}) as Partial<BoardSettings>;
+  const isFreeform =
+    Array.isArray(r.layout) && r.layout.every((b) => typeof b === "object" && b !== null && "x" in b && "y" in b);
   return {
     accentColor: r.accentColor ?? DEFAULT_BOARD_SETTINGS.accentColor,
     soundEnabled: r.soundEnabled ?? DEFAULT_BOARD_SETTINGS.soundEnabled,
     soundVolume: r.soundVolume ?? DEFAULT_BOARD_SETTINGS.soundVolume,
-    layout,
+    layout: isFreeform ? r.layout! : DEFAULT_BOARD_SETTINGS.layout,
   };
 }
 
