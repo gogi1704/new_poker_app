@@ -22,7 +22,7 @@ const bot = new Bot(botToken);
 const db = createDb(databaseUrl);
 
 registerStartCommand(bot, webAppUrl);
-startReminderJob(bot, db);
+startReminderJob(bot, db, webAppUrl);
 if (webTdUrl) {
   registerTdCommand(bot, db, webTdUrl);
 } else {

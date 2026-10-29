@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@poker/shared": "workspace:*",
+    "@resvg/resvg-js": "2.6.2",
     "dotenv": "16.4.7",
     "drizzle-orm": "0.38.3",
     "grammy": "1.33.0",

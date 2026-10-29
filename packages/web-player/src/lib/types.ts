@@ -54,6 +54,7 @@ export interface ResultsListTournament {
   playersCount: number;
   winner: { nickname: string; avatarUrl: string | null } | null;
   totalKnockouts: number;
+  standings: StandingRow[];
 }
 
 export interface ResultsOverview {
@@ -71,11 +72,6 @@ export interface StandingRow {
   playerId: string;
   nickname: string;
   avatarUrl: string | null;
-}
-
-export interface ResultDetail {
-  tournament: ResultsListTournament & { format: string };
-  standings: StandingRow[];
 }
 
 export interface ClubStandingRow {

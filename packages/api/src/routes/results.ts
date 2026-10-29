@@ -21,25 +21,30 @@ export default async function resultsRoutes(fastify: FastifyInstance) {
 
     const list = await Promise.all(
       tournaments.map(async (t) => {
-        const resultRows = await fastify.db
+        const standings = await fastify.db
           .select({
             place: schema.tournamentResults.place,
+            rpsAwarded: schema.tournamentResults.rpsAwarded,
             knockoutsCount: schema.tournamentResults.knockoutsCount,
+            bountyPoints: schema.tournamentResults.bountyPoints,
+            playerId: schema.tournamentResults.playerId,
             nickname: schema.players.nickname,
             avatarUrl: schema.players.avatarUrl,
           })
           .from(schema.tournamentResults)
           .innerJoin(schema.players, eq(schema.players.id, schema.tournamentResults.playerId))
-          .where(eq(schema.tournamentResults.tournamentId, t.id));
+          .where(eq(schema.tournamentResults.tournamentId, t.id))
+          .orderBy(asc(schema.tournamentResults.place));
 
-        const winner = resultRows.find((r) => r.place === 1) ?? null;
-        const totalKnockouts = resultRows.reduce((sum, r) => sum + r.knockoutsCount, 0);
+        const winner = standings.find((r) => r.place === 1) ?? null;
+        const totalKnockouts = standings.reduce((sum, r) => sum + r.knockoutsCount, 0);
 
         return {
           ...t,
-          playersCount: resultRows.length,
+          playersCount: standings.length,
           winner: winner ? { nickname: winner.nickname, avatarUrl: winner.avatarUrl } : null,
           totalKnockouts,
+          standings,
         };
       }),
     );
@@ -67,29 +72,5 @@ export default async function resultsRoutes(fastify: FastifyInstance) {
       rpsLeader: leader ? { nickname: leader.nickname, totalRps: Number(leader.totalRps) } : null,
       tournaments: list,
     };
-  });
-
-  fastify.get("/api/results/:id", async (request, reply) => {
-    const { id } = request.params as { id: string };
-
-    const [tournament] = await fastify.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id));
-    if (!tournament) return reply.code(404).send({ error: "not found" });
-
-    const standings = await fastify.db
-      .select({
-        place: schema.tournamentResults.place,
-        rpsAwarded: schema.tournamentResults.rpsAwarded,
-        knockoutsCount: schema.tournamentResults.knockoutsCount,
-        bountyPoints: schema.tournamentResults.bountyPoints,
-        playerId: schema.tournamentResults.playerId,
-        nickname: schema.players.nickname,
-        avatarUrl: schema.players.avatarUrl,
-      })
-      .from(schema.tournamentResults)
-      .innerJoin(schema.players, eq(schema.players.id, schema.tournamentResults.playerId))
-      .where(eq(schema.tournamentResults.tournamentId, id))
-      .orderBy(asc(schema.tournamentResults.place));
-
-    return { tournament, standings };
   });
 }

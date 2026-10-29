@@ -13,6 +13,7 @@ export default function TournamentCarousel({
   onOpen: (id: string) => void;
 }) {
   const [index, setIndex] = useState(0);
+  const [animate, setAnimate] = useState(true);
   const touchStartX = useRef<number | null>(null);
   const suppressClick = useRef(false);
 
@@ -20,12 +21,25 @@ export default function TournamentCarousel({
     if (index >= tournaments.length) setIndex(0);
   }, [tournaments.length, index]);
 
+  function advance(direction: 1 | -1) {
+    setIndex((i) => {
+      const next = (i + direction + tournaments.length) % tournaments.length;
+      const wrapped = direction === 1 ? next < i : next > i;
+      setAnimate(!wrapped);
+      if (wrapped) {
+        // Let the instant (no-transition) jump to the wrap target paint first,
+        // then re-enable the transition so the *next* move slides normally.
+        requestAnimationFrame(() => requestAnimationFrame(() => setAnimate(true)));
+      }
+      return next;
+    });
+  }
+
   useEffect(() => {
     if (tournaments.length < 2) return;
-    const timer = setTimeout(() => {
-      setIndex((i) => (i + 1) % tournaments.length);
-    }, SLIDE_MS);
+    const timer = setTimeout(() => advance(1), SLIDE_MS);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, tournaments.length]);
 
   function handleTouchStart(e: React.TouchEvent) {
@@ -38,7 +52,7 @@ export default function TournamentCarousel({
     touchStartX.current = null;
     if (Math.abs(delta) < SWIPE_THRESHOLD) return;
     suppressClick.current = true;
-    setIndex((i) => (delta < 0 ? (i + 1) % tournaments.length : (i - 1 + tournaments.length) % tournaments.length));
+    advance(delta < 0 ? 1 : -1);
   }
 
   function handleClickCapture(e: React.MouseEvent) {
@@ -49,11 +63,15 @@ export default function TournamentCarousel({
     }
   }
 
-  const current = tournaments[index];
-  if (!current) return null;
+  if (tournaments.length === 0) return null;
 
   return (
-    <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onClickCapture={handleClickCapture}>
+    <div
+      className="carousel-viewport"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onClickCapture={handleClickCapture}
+    >
       {tournaments.length > 1 && (
         <div className="carousel-progress">
           {tournaments.map((t, i) => (
@@ -67,7 +85,16 @@ export default function TournamentCarousel({
           ))}
         </div>
       )}
-      <TournamentCard tournament={current} onClick={() => onOpen(current.id)} />
+      <div
+        className="carousel-track"
+        style={{ transform: `translateX(-${index * 100}%)`, transition: animate ? undefined : "none" }}
+      >
+        {tournaments.map((t) => (
+          <div className="carousel-slide" key={t.id}>
+            <TournamentCard tournament={t} onClick={() => onOpen(t.id)} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

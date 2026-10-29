@@ -39,6 +39,8 @@ export default function App() {
         setToken(data.token);
         setClub(data.club);
         setAuth({ status: "ready" });
+        const deepLinkId = new URLSearchParams(window.location.search).get("tournament");
+        if (deepLinkId) setOpenTournamentId(deepLinkId);
       })
       .catch((err) => setAuth({ status: "error", message: String(err) }));
   }, []);

@@ -1681,6 +1681,20 @@ body {
   white-space: nowrap;
 }
 
+.carousel-viewport {
+  overflow: hidden;
+}
+
+.carousel-track {
+  display: flex;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.carousel-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
 .carousel-progress {
   display: flex;
   gap: 4px;

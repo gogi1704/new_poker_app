@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Trophy, Calendar, Users, Coins, Swords, Crown, ChevronDown, TrendingUp } from "lucide-react";
 import { apiGet } from "../lib/api.js";
-import type { ResultDetail, ResultsListTournament, ResultsOverview } from "../lib/types.js";
+import type { ResultsListTournament, ResultsOverview } from "../lib/types.js";
 import { formatDateShort, formatLabel, formatMoney } from "../lib/format.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
 import Avatar from "../components/Avatar.js";
+
+const ROMAN = ["I", "II", "III"];
 
 export default function Results({ active }: { active: boolean }) {
   const [overview, setOverview] = useState<ResultsOverview | null>(null);
@@ -128,26 +130,16 @@ function ResultCard({
           <ChevronDown size={16} />
         </div>
       </div>
-      {expanded && <ResultStandings tournamentId={t.id} />}
+      {expanded && <ResultStandings standings={t.standings} />}
     </div>
   );
 }
 
-function ResultStandings({ tournamentId }: { tournamentId: string }) {
-  const [detail, setDetail] = useState<ResultDetail | null>(null);
-
-  useEffect(() => {
-    apiGet<ResultDetail>(`/api/results/${tournamentId}`).then(setDetail);
-  }, [tournamentId]);
-
-  if (!detail) return <div className="loading">Загрузка…</div>;
-
-  const ROMAN = ["I", "II", "III"];
-
+function ResultStandings({ standings }: { standings: ResultsListTournament["standings"] }) {
   return (
     <div style={{ padding: "10px 16px 14px" }}>
       <div className="row-list">
-        {detail.standings.map((s, i) => (
+        {standings.map((s, i) => (
           <div className="standing-row" key={s.playerId}>
             <div className="row" style={{ gap: 12, justifyContent: "flex-start", minWidth: 0 }}>
               <span className={`standing-rank ${i === 0 ? "gold" : i < 3 ? "outline" : "plain"}`}>

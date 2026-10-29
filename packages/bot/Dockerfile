@@ -1,6 +1,9 @@
 # Build context must be the repo root (needs the pnpm workspace files).
 FROM node:22-alpine
 RUN corepack enable
+# Needed so resvg-js (tournament-card image rendering for reminders) has a
+# Cyrillic-capable font to rasterize text with — Alpine ships no fonts at all.
+RUN apk add --no-cache ttf-dejavu
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 # Chown the empty dir now (instant) instead of `chown -R` after node_modules
