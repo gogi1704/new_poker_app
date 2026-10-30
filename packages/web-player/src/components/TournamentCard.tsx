@@ -54,7 +54,6 @@ export default function TournamentCard({
             <div className="tc-art-top">
               <span className="format-chip">{formatLabel(tournament.format)}</span>
               <div className="tc-art-badges">
-                {tournament.isMine && <span className="format-chip format-chip-accent">★ Я</span>}
                 <span className={`status-pill ${status.className}`}>{status.label}</span>
               </div>
             </div>
