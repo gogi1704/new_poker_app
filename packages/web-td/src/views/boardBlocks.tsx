@@ -159,7 +159,12 @@ export function ClockBlock({
   const digits = (
     <div
       style={{
-        fontSize: progressStyle === "ring" ? "clamp(28px, 7cqw, 110px)" : "clamp(40px, 9cqw, 160px)",
+        // The ring case sizes digits off the ring's OWN box (see its
+        // `containerType: "size"` below), not the outer block — the ring's
+        // diameter scales with the block's height (cqh) while this would
+        // otherwise scale with the block's width (cqw), so for a wide/short
+        // block the two drift apart and digits spill past the ring.
+        fontSize: progressStyle === "ring" ? "clamp(20px, 20cqw, 90px)" : "clamp(40px, 9cqw, 160px)",
         fontWeight: 800,
         fontVariantNumeric: "tabular-nums",
         lineHeight: 1,
@@ -194,7 +199,15 @@ export function ClockBlock({
     return (
       <div style={{ width: "100%", textAlign: "center" }}>
         {breakBadge}
-        <div style={{ position: "relative", width: "clamp(140px, 32cqh, 420px)", height: "clamp(140px, 32cqh, 420px)", margin: "0 auto" }}>
+        <div
+          style={{
+            position: "relative",
+            width: "clamp(140px, 32cqh, 420px)",
+            height: "clamp(140px, 32cqh, 420px)",
+            margin: "0 auto",
+            containerType: "size" as const,
+          }}
+        >
           <svg
             viewBox="0 0 100 100"
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "rotate(-90deg)" }}
