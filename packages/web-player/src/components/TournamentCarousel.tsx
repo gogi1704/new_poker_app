@@ -14,8 +14,12 @@ export default function TournamentCarousel({
 }) {
   const [index, setIndex] = useState(0);
   const [animate, setAnimate] = useState(true);
+  const [dragDeltaPct, setDragDeltaPct] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
+  const draggingRef = useRef(false);
   const suppressClick = useRef(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (index >= tournaments.length) setIndex(0);
@@ -37,19 +41,43 @@ export default function TournamentCarousel({
 
   useEffect(() => {
     if (tournaments.length < 2) return;
-    const timer = setTimeout(() => advance(1), SLIDE_MS);
+    const timer = setTimeout(() => {
+      if (!draggingRef.current) advance(1);
+    }, SLIDE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, tournaments.length]);
 
   function handleTouchStart(e: React.TouchEvent) {
+    if (tournaments.length < 2) return;
     touchStartX.current = e.touches[0].clientX;
+    draggingRef.current = true;
+    setIsDragging(true);
+    setAnimate(false);
+    setDragDeltaPct(0);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (touchStartX.current === null || !viewportRef.current) return;
+    const deltaPx = e.touches[0].clientX - touchStartX.current;
+    const widthPx = viewportRef.current.offsetWidth || 1;
+    const pct = Math.max(-100, Math.min(100, (deltaPx / widthPx) * 100));
+    setDragDeltaPct(pct);
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null || tournaments.length < 2) return;
+    draggingRef.current = false;
+    setIsDragging(false);
+    if (touchStartX.current === null || tournaments.length < 2) {
+      touchStartX.current = null;
+      setAnimate(true);
+      setDragDeltaPct(0);
+      return;
+    }
     const delta = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
+    setAnimate(true);
+    setDragDeltaPct(0);
     if (Math.abs(delta) < SWIPE_THRESHOLD) return;
     suppressClick.current = true;
     advance(delta < 0 ? 1 : -1);
@@ -65,29 +93,44 @@ export default function TournamentCarousel({
 
   if (tournaments.length === 0) return null;
 
+  const dragFillFraction = Math.max(0, Math.min(1, -dragDeltaPct / 100));
+
   return (
     <div
       className="carousel-viewport"
+      ref={viewportRef}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onClickCapture={handleClickCapture}
     >
       {tournaments.length > 1 && (
         <div className="carousel-progress">
-          {tournaments.map((t, i) => (
-            <div key={t.id} className="carousel-segment">
-              <div
-                key={i === index ? `active-${index}` : "idle"}
-                className={`carousel-segment-fill ${i < index ? "done" : i === index ? "active" : ""}`}
-                style={i === index ? { animationDuration: `${SLIDE_MS}ms` } : undefined}
-              />
-            </div>
-          ))}
+          {tournaments.map((t, i) => {
+            const isActive = i === index;
+            const fillStyle = isActive && isDragging
+              ? { width: `${dragFillFraction * 100}%`, animation: "none" as const }
+              : isActive
+                ? { animationDuration: `${SLIDE_MS}ms` }
+                : undefined;
+            return (
+              <div key={t.id} className="carousel-segment">
+                <div
+                  key={isActive ? `active-${index}` : "idle"}
+                  className={`carousel-segment-fill ${i < index ? "done" : isActive && !isDragging ? "active" : ""}`}
+                  style={fillStyle}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
       <div
         className="carousel-track"
-        style={{ transform: `translateX(-${index * 100}%)`, transition: animate ? undefined : "none" }}
+        style={{
+          transform: `translateX(calc(-${index * 100}% + ${dragDeltaPct}%))`,
+          transition: animate ? undefined : "none",
+        }}
       >
         {tournaments.map((t) => (
           <div className="carousel-slide" key={t.id}>
