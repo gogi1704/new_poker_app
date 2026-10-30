@@ -76,6 +76,10 @@ export interface BoardBlockConfig {
   height: number;
   text?: string;
   fontSize?: number;
+  fontWeight?: 500 | 700 | 800;
+  fontFamily?: string;
+  color?: string;
+  italic?: boolean;
   progressStyle?: "bar" | "thick" | "ring";
 }
 

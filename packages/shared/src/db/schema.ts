@@ -92,6 +92,14 @@ export interface BoardBlockConfig {
   text?: string;
   /** Any text-bearing block except "clock" — px at a 1920px-wide reference board, scaled responsively from there. */
   fontSize?: number;
+  /** Any text-bearing block except "clock". */
+  fontWeight?: 500 | 700 | 800;
+  /** Any text-bearing block except "clock" — a CSS font-family value, e.g. "'Montserrat', sans-serif". */
+  fontFamily?: string;
+  /** Any text-bearing block except "clock". */
+  color?: string;
+  /** Any text-bearing block except "clock". */
+  italic?: boolean;
   /** "clock" only. */
   progressStyle?: "bar" | "thick" | "ring";
 }

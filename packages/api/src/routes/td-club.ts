@@ -15,6 +15,10 @@ const boardBlockSchema = z.object({
   height: z.number().min(1).max(100),
   text: z.string().max(200).optional(),
   fontSize: z.number().min(8).max(200).optional(),
+  fontWeight: z.union([z.literal(500), z.literal(700), z.literal(800)]).optional(),
+  fontFamily: z.string().max(80).optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  italic: z.boolean().optional(),
   progressStyle: z.enum(["bar", "thick", "ring"]).optional(),
 });
 

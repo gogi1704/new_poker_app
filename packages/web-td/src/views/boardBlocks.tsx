@@ -55,10 +55,50 @@ export const PROGRESS_STYLE_OPTIONS: { id: ClockProgressStyle; label: string }[]
   { id: "ring", label: "Кольцо" },
 ];
 
-function Stat({ value, label, fontSize }: { value: number | string; label: string; fontSize?: number }) {
+export const FONT_WEIGHT_OPTIONS: { id: 500 | 700 | 800; label: string }[] = [
+  { id: 500, label: "Обычный" },
+  { id: 700, label: "Полужирный" },
+  { id: 800, label: "Жирный" },
+];
+
+export const FONT_FAMILY_OPTIONS: { id: string; label: string }[] = [
+  { id: "", label: "По умолчанию" },
+  { id: "'Roboto', sans-serif", label: "Roboto" },
+  { id: "'Montserrat', sans-serif", label: "Montserrat" },
+  { id: "'Playfair Display', serif", label: "Playfair Display" },
+];
+
+// A block's TD-chosen style overrides, applied over each block's own default
+// look. Omitted fields fall through to that block's normal styling below.
+function textStyleOverrides(block: BoardBlockConfig): React.CSSProperties {
+  return {
+    ...(block.fontWeight ? { fontWeight: block.fontWeight } : {}),
+    ...(block.fontFamily ? { fontFamily: block.fontFamily } : {}),
+    ...(block.color ? { color: block.color } : {}),
+    ...(block.italic ? { fontStyle: "italic" } : {}),
+  };
+}
+
+function Stat({
+  value,
+  label,
+  fontSize,
+  textStyle,
+}: {
+  value: number | string;
+  label: string;
+  fontSize?: number;
+  textStyle?: React.CSSProperties;
+}) {
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: fontSize ? customFontSize(fontSize) : "clamp(20px, 4cqw, 42px)", fontWeight: 800 }}>
+      <div
+        style={{
+          fontSize: fontSize ? customFontSize(fontSize) : "clamp(20px, 4cqw, 42px)",
+          fontWeight: 800,
+          ...textStyle,
+        }}
+      >
         {value}
       </div>
       <div style={{ fontSize: "clamp(9px, 1.4cqw, 16px)", color: "#8b98ab", textTransform: "uppercase", letterSpacing: 1 }}>
@@ -222,13 +262,20 @@ export function ClockBlock({
 export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, accent: string): React.ReactNode {
   switch (block.type) {
     case "stats-players":
-      return <Stat value={state.counts.active} label="игроков" fontSize={block.fontSize} />;
+      return <Stat value={state.counts.active} label="игроков" fontSize={block.fontSize} textStyle={textStyleOverrides(block)} />;
 
     case "stats-tables":
-      return <Stat value={state.counts.tablesActive} label="столов" fontSize={block.fontSize} />;
+      return <Stat value={state.counts.tablesActive} label="столов" fontSize={block.fontSize} textStyle={textStyleOverrides(block)} />;
 
     case "stats-avg-stack":
-      return <Stat value={avgStack(state).toLocaleString("ru-RU")} label="средний стек" fontSize={block.fontSize} />;
+      return (
+        <Stat
+          value={avgStack(state).toLocaleString("ru-RU")}
+          label="средний стек"
+          fontSize={block.fontSize}
+          textStyle={textStyleOverrides(block)}
+        />
+      );
 
     case "chip-leader":
       if (!state.chipLeader) return null;
@@ -237,6 +284,7 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
           value={state.chipLeader.stack.toLocaleString("ru-RU")}
           label={`лидер: ${state.chipLeader.nickname}`}
           fontSize={block.fontSize}
+          textStyle={textStyleOverrides(block)}
         />
       );
 
@@ -250,6 +298,7 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
             textAlign: "center",
             overflow: "hidden",
             width: "100%",
+            ...textStyleOverrides(block),
           }}
         >
           {block.text ?? ""}
@@ -269,6 +318,7 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
             whiteSpace: "nowrap",
             textOverflow: "ellipsis",
             width: "100%",
+            ...textStyleOverrides(block),
           }}
         >
           {state.board.clubName}
@@ -295,7 +345,11 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
           {entries.map((p) => (
             <div
               key={p.place}
-              style={block.fontSize ? { ...blockStyles.payoutItem, fontSize: customFontSize(block.fontSize) } : blockStyles.payoutItem}
+              style={{
+                ...blockStyles.payoutItem,
+                ...(block.fontSize ? { fontSize: customFontSize(block.fontSize) } : {}),
+                ...textStyleOverrides(block),
+              }}
             >
               <span style={blockStyles.payoutPlace}>{p.place}.</span> {p.amount.toLocaleString("ru-RU")} ₽
             </div>
@@ -307,7 +361,13 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
     case "knockout-ticker":
       if (!state.eliminations.length) return null;
       return (
-        <div style={block.fontSize ? { ...blockStyles.ticker, fontSize: customFontSize(block.fontSize) } : blockStyles.ticker}>
+        <div
+          style={{
+            ...blockStyles.ticker,
+            ...(block.fontSize ? { fontSize: customFontSize(block.fontSize) } : {}),
+            ...textStyleOverrides(block),
+          }}
+        >
           {state.eliminations.slice(0, 5).map((e) => (
             <span key={`${e.playerId}-${e.at}`} style={blockStyles.tickerItem}>
               {e.place}. {e.nickname}
@@ -326,7 +386,11 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
               {t.seats.map((s) => (
                 <div
                   key={s.seatNo ?? s.playerId}
-                  style={block.fontSize ? { ...blockStyles.seatRow, fontSize: customFontSize(block.fontSize) } : blockStyles.seatRow}
+                  style={{
+                    ...blockStyles.seatRow,
+                    ...(block.fontSize ? { fontSize: customFontSize(block.fontSize) } : {}),
+                    ...textStyleOverrides(block),
+                  }}
                 >
                   <span style={blockStyles.seatNo}>{s.seatNo ?? "—"}</span>
                   <span style={blockStyles.seatName}>{s.nickname}</span>
@@ -347,7 +411,11 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
           {sorted.map((p) => (
             <div
               key={p.playerId}
-              style={block.fontSize ? { ...blockStyles.participantRow, fontSize: customFontSize(block.fontSize) } : blockStyles.participantRow}
+              style={{
+                ...blockStyles.participantRow,
+                ...(block.fontSize ? { fontSize: customFontSize(block.fontSize) } : {}),
+                ...textStyleOverrides(block),
+              }}
             >
               <span style={blockStyles.participantName}>{p.nickname}</span>
               <span style={blockStyles.participantTable}>стол {p.tableNo}</span>
@@ -370,6 +438,7 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
               style={{
                 ...blockStyles.blindRow,
                 ...(block.fontSize ? { fontSize: customFontSize(block.fontSize) } : {}),
+                ...textStyleOverrides(block),
                 ...(l.levelNumber === current ? { color: accent, fontWeight: 800 } : {}),
               }}
             >

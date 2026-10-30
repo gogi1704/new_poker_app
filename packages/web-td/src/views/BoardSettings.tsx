@@ -2,7 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Plus, Trash2, Volume2, Upload, Ban } from "lucide-react";
 import { apiGet, apiPut } from "../lib/api.js";
 import Toggle from "../components/Toggle.js";
-import { BLOCK_LABELS, renderBoardBlock, ClockBlock, DEFAULT_FONT_SIZE, PROGRESS_STYLE_OPTIONS } from "./boardBlocks.js";
+import {
+  BLOCK_LABELS,
+  renderBoardBlock,
+  ClockBlock,
+  DEFAULT_FONT_SIZE,
+  PROGRESS_STYLE_OPTIONS,
+  FONT_WEIGHT_OPTIONS,
+  FONT_FAMILY_OPTIONS,
+} from "./boardBlocks.js";
 import { BOARD_BLOCK_TYPES, type BoardBlockConfig, type BoardBlockType, type LiveState } from "../lib/liveTypes.js";
 
 interface BoardSettingsShape {
@@ -311,6 +319,79 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
                 onChange={(e) => updateBlock(selected.id, { fontSize: Number(e.target.value) })}
                 style={{ width: "100%" }}
               />
+
+              <div className="small muted" style={{ marginTop: 10, marginBottom: 4 }}>
+                Начертание
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {FONT_WEIGHT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      ...overlayStyles.smallBtn,
+                      width: "auto",
+                      flex: 1,
+                      border: (selected.fontWeight ?? 500) === opt.id ? "2px solid #4da3ff" : undefined,
+                    }}
+                    onClick={() => updateBlock(selected.id, { fontWeight: opt.id })}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="small muted" style={{ marginTop: 10, marginBottom: 4 }}>
+                Шрифт
+              </div>
+              <select
+                value={selected.fontFamily ?? ""}
+                onChange={(e) => updateBlock(selected.id, { fontFamily: e.target.value || undefined })}
+                style={overlayStyles.textInput}
+              >
+                {FONT_FAMILY_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              <div className="row" style={{ marginTop: 10 }}>
+                <span className="small">Цвет текста</span>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    type="color"
+                    value={selected.color ?? "#f2f3f5"}
+                    onChange={(e) => updateBlock(selected.id, { color: e.target.value })}
+                    style={{
+                      width: 36,
+                      height: 28,
+                      padding: 1,
+                      background: "var(--card-2)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ ...overlayStyles.smallBtn, width: "auto" }}
+                    disabled={!selected.color}
+                    onClick={() => updateBlock(selected.id, { color: undefined })}
+                  >
+                    По умолчанию
+                  </button>
+                </div>
+              </div>
+
+              <div className="row" style={{ marginTop: 10 }}>
+                <span className="small">Курсив</span>
+                <Toggle
+                  checked={selected.italic ?? false}
+                  onChange={(v) => updateBlock(selected.id, { italic: v || undefined })}
+                />
+              </div>
             </>
           )}
           {selected.type === "clock" && (
@@ -610,10 +691,16 @@ const overlayStyles = {
     justifyContent: "center",
     minHeight: 0,
     padding: 12,
+    containerType: "size" as const,
   },
   canvas: {
     position: "relative" as const,
-    width: "min(100%, calc((100vh - 220px) * 16 / 9))",
+    // Sized off the stage's own container-query height rather than a
+    // hardcoded "100vh minus chrome" guess — the chrome around the stage
+    // (inspector height especially) varies by how many controls a selected
+    // block's inspector shows, so a fixed px estimate goes stale and lets
+    // the canvas overflow over the toolbar/footer.
+    width: "min(100%, 177.78cqh)",
     aspectRatio: "16 / 9",
     background: "#0b0f14",
     border: "1px solid var(--border)",
