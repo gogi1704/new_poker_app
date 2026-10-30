@@ -289,6 +289,7 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
+      <div style={overlayStyles.scrollArea}>
       {selected && (
         <div style={overlayStyles.inspector}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -494,6 +495,7 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
           <Toggle checked={club.boardSettings.soundEnabled} onChange={(v) => patchSettings({ soundEnabled: v })} />
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -685,22 +687,24 @@ const overlayStyles = {
   },
   paletteBtn: { width: "auto", padding: "7px 12px", fontSize: 12 },
   stage: {
-    flex: 1,
+    // Fixed-size, not flex:1 — the live preview should stay a stable, usable
+    // size no matter how tall the selected block's inspector gets. Inspector
+    // + footer live in their own scrollable area below instead of squeezing
+    // this one.
+    flexShrink: 0,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 0,
     padding: 12,
-    containerType: "size" as const,
+  },
+  scrollArea: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: "auto" as const,
   },
   canvas: {
     position: "relative" as const,
-    // Sized off the stage's own container-query height rather than a
-    // hardcoded "100vh minus chrome" guess — the chrome around the stage
-    // (inspector height especially) varies by how many controls a selected
-    // block's inspector shows, so a fixed px estimate goes stale and lets
-    // the canvas overflow over the toolbar/footer.
-    width: "min(100%, 177.78cqh)",
+    width: "min(100%, calc(46vh * 16 / 9))",
     aspectRatio: "16 / 9",
     background: "#0b0f14",
     border: "1px solid var(--border)",
