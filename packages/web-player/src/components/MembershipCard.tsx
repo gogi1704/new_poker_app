@@ -128,10 +128,10 @@ export default function MembershipCard({
                 <div className="mc-club-logo mc-club-logo-fallback mc-club-logo-round">{clubName.slice(0, 1)}</div>
               )}
             </div>
-            <div style={{ marginTop: 18 }}>
+            <div style={{ marginTop: 12 }}>
               <div style={{ color: "#fff" }}>{clubName}</div>
               <div className="mc-underline" />
-              <div style={{ fontWeight: 800, fontSize: 16, marginTop: 8 }}>{nickname}</div>
+              <div style={{ fontWeight: 800, fontSize: 16, marginTop: 6 }}>{nickname}</div>
             </div>
             <div className="mc-back-footer">
               <span className="small muted" style={{ display: "flex", alignItems: "center", gap: 5 }}>

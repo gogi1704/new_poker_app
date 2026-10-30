@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Repeat, Users, Zap, Check, UserPlus } from "lucide-react";
+import { X, Repeat, Users, Zap, Check } from "lucide-react";
 import { apiGet, apiPost } from "../lib/api.js";
 import type { TournamentDetail as TournamentDetailT } from "../lib/types.js";
 import { formatDateTime, formatLabel, formatMoney } from "../lib/format.js";
@@ -175,16 +175,11 @@ export default function TournamentDetail({
                 disabled={submitting || tournament.participants.length >= tournament.maxSeats}
                 onClick={handleRegister}
               >
-                {submitting ? (
-                  "Записываем…"
-                ) : tournament.participants.length >= tournament.maxSeats ? (
-                  "Мест нет"
-                ) : (
-                  <>
-                    <UserPlus size={16} style={{ marginRight: 6, verticalAlign: -3 }} />
-                    Записаться на турнир
-                  </>
-                )}
+                {submitting
+                  ? "Записываем…"
+                  : tournament.participants.length >= tournament.maxSeats
+                    ? "Мест нет"
+                    : "Записаться на турнир"}
               </button>
             )}
             {registerError && (

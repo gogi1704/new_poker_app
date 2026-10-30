@@ -64,7 +64,7 @@ export default function Profile({
 
   if (!data) return <div className="loading">Загрузка…</div>;
 
-  const { player, membership, stats, rankProgress, achievements, myTournaments } = data;
+  const { player, membership, stats, achievements, myTournaments } = data;
 
   return (
     <div className="section">
@@ -85,12 +85,6 @@ export default function Profile({
       {membership && (
         <div style={{ marginBottom: 14 }}>
           <MembershipCard nickname={player.nickname} club={club} membership={membership} />
-        </div>
-      )}
-
-      {rankProgress.next && (
-        <div className="small muted" style={{ marginBottom: 14, textAlign: "right" }}>
-          → {rankProgress.next.name} через {100 - rankProgress.progressPercent}%
         </div>
       )}
 

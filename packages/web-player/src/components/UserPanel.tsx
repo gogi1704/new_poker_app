@@ -5,6 +5,7 @@ import type { ProfileResponse } from "../lib/types.js";
 export default function UserPanel({ profile, onEdit }: { profile: ProfileResponse; onEdit?: () => void }) {
   const { player, stats, rankProgress } = profile;
   const rankName = rankProgress.current?.name ?? "Newbie";
+  const nextRank = rankProgress.next;
 
   return (
     <div className="card" style={{ marginBottom: 12 }}>
@@ -43,6 +44,11 @@ export default function UserPanel({ profile, onEdit }: { profile: ProfileRespons
       <div className="progress-bar" style={{ marginTop: 16 }}>
         <div className="fill" style={{ width: `${rankProgress.progressPercent}%` }} />
       </div>
+      {nextRank && (
+        <div className="small muted" style={{ marginTop: 6, textAlign: "right" }}>
+          → {nextRank.name} через {100 - rankProgress.progressPercent}%
+        </div>
+      )}
     </div>
   );
 }
