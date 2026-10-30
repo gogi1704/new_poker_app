@@ -72,6 +72,8 @@ export const BOARD_BLOCK_TYPES = [
   "participants-list",
   "blind-structure",
   "custom-text",
+  "club-name",
+  "club-logo",
 ] as const;
 
 export type BoardBlockType = (typeof BOARD_BLOCK_TYPES)[number];
@@ -96,6 +98,9 @@ export interface BoardSettings {
   accentColor: string;
   soundEnabled: boolean;
   soundVolume: number;
+  /** Full-bleed board background: one of the bundled presets, a TD-uploaded
+   *  image, or null for the plain dark background. */
+  backgroundUrl: string | null;
   layout: BoardBlockConfig[];
 }
 
@@ -103,13 +108,16 @@ export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
   accentColor: "#8c6a2f",
   soundEnabled: true,
   soundVolume: 0.7,
+  backgroundUrl: null,
   layout: [
-    { id: "clock", type: "clock", x: 25, y: 4, width: 50, height: 48 },
-    { id: "stats-players", type: "stats-players", x: 3, y: 55, width: 16, height: 14 },
-    { id: "stats-tables", type: "stats-tables", x: 21, y: 55, width: 16, height: 14 },
-    { id: "stats-avg-stack", type: "stats-avg-stack", x: 39, y: 55, width: 16, height: 14 },
-    { id: "payout-preview", type: "payout-preview", x: 3, y: 72, width: 44, height: 13 },
-    { id: "knockout-ticker", type: "knockout-ticker", x: 3, y: 87, width: 94, height: 11 },
+    { id: "club-logo", type: "club-logo", x: 45, y: 2, width: 10, height: 9 },
+    { id: "club-name", type: "club-name", x: 15, y: 11, width: 70, height: 6 },
+    { id: "clock", type: "clock", x: 25, y: 18, width: 50, height: 42 },
+    { id: "stats-players", type: "stats-players", x: 3, y: 62, width: 16, height: 14 },
+    { id: "stats-tables", type: "stats-tables", x: 21, y: 62, width: 16, height: 14 },
+    { id: "stats-avg-stack", type: "stats-avg-stack", x: 39, y: 62, width: 16, height: 14 },
+    { id: "payout-preview", type: "payout-preview", x: 3, y: 78, width: 44, height: 13 },
+    { id: "knockout-ticker", type: "knockout-ticker", x: 3, y: 92, width: 94, height: 7 },
   ],
 };
 
@@ -121,16 +129,31 @@ export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
  * stored yet — just resets to the default layout rather than trying to
  * carry forward a slot-based arrangement that has no sensible freeform
  * equivalent; the one-club admin can always re-arrange from there.
+ *
+ * club-name/club-logo used to be hardcoded, always-on elements (not part of
+ * the layout array at all), so any freeform layout saved before they became
+ * regular blocks won't have them — back-fill both so upgrading doesn't
+ * silently drop the club branding that was already on screen.
  */
 export function normalizeBoardSettings(raw: unknown): BoardSettings {
   const r = (raw ?? {}) as Partial<BoardSettings>;
   const isFreeform =
     Array.isArray(r.layout) && r.layout.every((b) => typeof b === "object" && b !== null && "x" in b && "y" in b);
+  const layout = isFreeform ? r.layout! : DEFAULT_BOARD_SETTINGS.layout;
+  const hasLogo = layout.some((b) => b.type === "club-logo");
+  const hasName = layout.some((b) => b.type === "club-name");
+  const defaultLogo = DEFAULT_BOARD_SETTINGS.layout.find((b) => b.type === "club-logo")!;
+  const defaultName = DEFAULT_BOARD_SETTINGS.layout.find((b) => b.type === "club-name")!;
+  const backfilled =
+    isFreeform && (!hasLogo || !hasName)
+      ? [...(hasLogo ? [] : [defaultLogo]), ...(hasName ? [] : [defaultName]), ...layout]
+      : layout;
   return {
     accentColor: r.accentColor ?? DEFAULT_BOARD_SETTINGS.accentColor,
     soundEnabled: r.soundEnabled ?? DEFAULT_BOARD_SETTINGS.soundEnabled,
     soundVolume: r.soundVolume ?? DEFAULT_BOARD_SETTINGS.soundVolume,
-    layout: isFreeform ? r.layout! : DEFAULT_BOARD_SETTINGS.layout,
+    backgroundUrl: r.backgroundUrl ?? null,
+    layout: backfilled,
   };
 }
 

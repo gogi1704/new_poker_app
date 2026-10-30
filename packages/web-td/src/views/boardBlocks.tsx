@@ -14,6 +14,8 @@ export const BLOCK_LABELS: Record<BoardBlockType, string> = {
   "participants-list": "Список участников",
   "blind-structure": "Структура блайндов",
   "custom-text": "Своя надпись",
+  "club-name": "Название клуба",
+  "club-logo": "Логотип клуба",
 };
 
 function avgStack(state: LiveState): number {
@@ -25,8 +27,8 @@ function avgStack(state: LiveState): number {
 function Stat({ value, label }: { value: number | string; label: string }) {
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: "clamp(20px, 4vw, 42px)", fontWeight: 800 }}>{value}</div>
-      <div style={{ fontSize: "clamp(9px, 1.4vw, 16px)", color: "#8b98ab", textTransform: "uppercase", letterSpacing: 1 }}>
+      <div style={{ fontSize: "clamp(20px, 4cqw, 42px)", fontWeight: 800 }}>{value}</div>
+      <div style={{ fontSize: "clamp(9px, 1.4cqw, 16px)", color: "#8b98ab", textTransform: "uppercase", letterSpacing: 1 }}>
         {label}
       </div>
     </div>
@@ -38,6 +40,11 @@ function Stat({ value, label }: { value: number | string; label: string }) {
  * as its own component (not a case in renderBoardBlock) because it needs
  * useTickingElapsed, which only a real component can call.
  */
+// Sized in cqw (container query width), not plain viewport-width units: ClockDisplay is fullscreen
+// (so its container happens to equal the viewport), but BoardSettings's
+// editor renders these same blocks inside a small boxed preview — cqw scales
+// relative to that box (given container-type:size on the block's ancestor)
+// so the preview matches the real board instead of rendering illegibly tiny.
 export function ClockBlock({ state, accent }: { state: LiveState; accent: string }) {
   const elapsed = useTickingElapsed(state.clock);
   const level = state.clock?.level;
@@ -46,7 +53,7 @@ export function ClockBlock({ state, accent }: { state: LiveState; accent: string
   const urgent = level && !level.isBreak && remaining <= 30;
 
   if (!state.clock) {
-    return <div style={{ fontSize: "clamp(16px, 2.5vw, 28px)", color: "#8b98ab" }}>Ожидание старта турнира…</div>;
+    return <div style={{ fontSize: "clamp(16px, 2.5cqw, 28px)", color: "#8b98ab" }}>Ожидание старта турнира…</div>;
   }
 
   return (
@@ -55,7 +62,7 @@ export function ClockBlock({ state, accent }: { state: LiveState; accent: string
         <div
           style={{
             display: "inline-block",
-            fontSize: "clamp(12px, 1.8vw, 22px)",
+            fontSize: "clamp(12px, 1.8cqw, 22px)",
             fontWeight: 800,
             background: `${accent}26`,
             color: accent,
@@ -69,7 +76,7 @@ export function ClockBlock({ state, accent }: { state: LiveState; accent: string
       )}
       <div
         style={{
-          fontSize: "clamp(40px, 9vw, 160px)",
+          fontSize: "clamp(40px, 9cqw, 160px)",
           fontWeight: 800,
           fontVariantNumeric: "tabular-nums",
           lineHeight: 1,
@@ -83,7 +90,7 @@ export function ClockBlock({ state, accent }: { state: LiveState; accent: string
           style={{
             width: "80%",
             maxWidth: 500,
-            height: "clamp(4px, 0.8vw, 8px)",
+            height: "clamp(4px, 0.8cqw, 8px)",
             borderRadius: 999,
             background: "rgba(255,255,255,0.1)",
             margin: "0.6em auto 0",
@@ -102,7 +109,7 @@ export function ClockBlock({ state, accent }: { state: LiveState; accent: string
         </div>
       )}
       {level && !level.isBreak && (
-        <div style={{ fontSize: "clamp(18px, 3.5vw, 56px)", fontWeight: 700, marginTop: "0.4em" }}>
+        <div style={{ fontSize: "clamp(18px, 3.5cqw, 56px)", fontWeight: 700, marginTop: "0.4em" }}>
           {level.smallBlind} / {level.bigBlind}
           {level.ante > 0 && (
             <span style={{ color: "#8b98ab", fontSize: "0.6em" }}> · ante {level.ante}</span>
@@ -110,7 +117,7 @@ export function ClockBlock({ state, accent }: { state: LiveState; accent: string
         </div>
       )}
       {state.clock.nextLevel && (
-        <div style={{ fontSize: "clamp(10px, 1.3vw, 20px)", color: "#8b98ab", marginTop: "0.5em" }}>
+        <div style={{ fontSize: "clamp(10px, 1.3cqw, 20px)", color: "#8b98ab", marginTop: "0.5em" }}>
           Следующий:{" "}
           {state.clock.nextLevel.isBreak
             ? "перерыв"
@@ -152,6 +159,35 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
         >
           {block.text ?? ""}
         </div>
+      );
+
+    case "club-name":
+      if (!state.board?.clubName) return null;
+      return (
+        <div
+          style={{
+            fontSize: "clamp(14px, 2.2cqw, 28px)",
+            fontWeight: 700,
+            color: accent,
+            textAlign: "center",
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
+            width: "100%",
+          }}
+        >
+          {state.board.clubName}
+        </div>
+      );
+
+    case "club-logo":
+      if (!state.board?.logoUrl) return null;
+      return (
+        <img
+          src={state.board.logoUrl}
+          alt=""
+          style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }}
+        />
       );
 
     case "payout-preview": {
@@ -247,9 +283,9 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
 }
 
 const blockStyles = {
-  payoutStrip: { display: "flex", gap: "1vw", flexWrap: "wrap" as const, justifyContent: "center", width: "100%" },
+  payoutStrip: { display: "flex", gap: "1cqw", flexWrap: "wrap" as const, justifyContent: "center", width: "100%" },
   payoutItem: {
-    fontSize: "clamp(10px, 1.3vw, 18px)",
+    fontSize: "clamp(10px, 1.3cqw, 18px)",
     color: "#8b98ab",
     background: "rgba(255,255,255,0.05)",
     padding: "0.4em 0.8em",
@@ -258,9 +294,9 @@ const blockStyles = {
   payoutPlace: { color: "#f2f3f5", fontWeight: 700 },
   ticker: {
     display: "flex",
-    gap: "1.2vw",
+    gap: "1.2cqw",
     color: "#8b98ab",
-    fontSize: "clamp(9px, 1.1vw, 16px)",
+    fontSize: "clamp(9px, 1.1cqw, 16px)",
     flexWrap: "wrap" as const,
     justifyContent: "center",
     width: "100%",
@@ -268,7 +304,7 @@ const blockStyles = {
   tickerItem: { opacity: 0.85 },
   tablesGrid: {
     display: "flex",
-    gap: "1vw",
+    gap: "1cqw",
     flexWrap: "wrap" as const,
     justifyContent: "center",
     width: "100%",
@@ -282,8 +318,8 @@ const blockStyles = {
     minWidth: 120,
     textAlign: "left" as const,
   },
-  tableTitle: { fontSize: "clamp(10px, 1.3vw, 16px)", fontWeight: 800, marginBottom: "0.4em", textTransform: "uppercase" as const },
-  seatRow: { display: "flex", gap: "0.6em", fontSize: "clamp(9px, 1.1vw, 14px)", color: "#d6dce3", padding: "0.15em 0" },
+  tableTitle: { fontSize: "clamp(10px, 1.3cqw, 16px)", fontWeight: 800, marginBottom: "0.4em", textTransform: "uppercase" as const },
+  seatRow: { display: "flex", gap: "0.6em", fontSize: "clamp(9px, 1.1cqw, 14px)", color: "#d6dce3", padding: "0.15em 0" },
   seatNo: { color: "#8b98ab", width: 16, flexShrink: 0 },
   seatName: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const },
   seatStack: { color: "#8b98ab" },
@@ -299,7 +335,7 @@ const blockStyles = {
   participantRow: {
     display: "flex",
     gap: "0.8em",
-    fontSize: "clamp(9px, 1.2vw, 15px)",
+    fontSize: "clamp(9px, 1.2cqw, 15px)",
     color: "#d6dce3",
     background: "rgba(255,255,255,0.03)",
     padding: "0.3em 0.7em",
@@ -319,7 +355,7 @@ const blockStyles = {
   blindRow: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: "clamp(9px, 1.2vw, 15px)",
+    fontSize: "clamp(9px, 1.2cqw, 15px)",
     color: "#d6dce3",
     padding: "0.2em 0.6em",
   },

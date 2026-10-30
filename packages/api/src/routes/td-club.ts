@@ -20,6 +20,7 @@ const boardSettingsSchema = z.object({
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   soundEnabled: z.boolean(),
   soundVolume: z.number().min(0).max(1),
+  backgroundUrl: z.string().max(3_000_000).nullable(),
   layout: z.array(boardBlockSchema).max(40),
 });
 

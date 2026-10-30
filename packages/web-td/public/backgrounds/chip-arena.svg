@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="ca-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#15171c"/>
+      <stop offset="100%" stop-color="#06070a"/>
+    </linearGradient>
+    <radialGradient id="ca-spot" cx="50%" cy="8%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="ca-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <radialGradient id="ca-vignette" cx="50%" cy="45%" r="75%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="60%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.7"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#ca-base)"/>
+  <rect width="1920" height="1080" fill="url(#ca-spot)"/>
+
+  <!-- large soft card silhouettes, back corners -->
+  <g opacity="0.07" filter="url(#ca-blur)">
+    <rect x="-120" y="620" width="340" height="480" rx="40" fill="#e8c37a" transform="rotate(-18 50 860)"/>
+    <rect x="1700" y="600" width="340" height="480" rx="40" fill="#8c6a2f" transform="rotate(16 1870 840)"/>
+  </g>
+
+  <!-- blurred chip stacks, bottom corners -->
+  <g filter="url(#ca-blur)">
+    <g opacity="0.16">
+      <ellipse cx="120" cy="1040" rx="170" ry="68" fill="#8c6a2f"/>
+      <ellipse cx="120" cy="980" rx="170" ry="68" fill="#e8c37a"/>
+      <ellipse cx="120" cy="920" rx="170" ry="68" fill="#8c6a2f"/>
+    </g>
+    <g opacity="0.14">
+      <ellipse cx="1830" cy="1050" rx="150" ry="60" fill="#4a3a1c"/>
+      <ellipse cx="1830" cy="1000" rx="150" ry="60" fill="#8c6a2f"/>
+      <ellipse cx="1830" cy="950" rx="150" ry="60" fill="#4a3a1c"/>
+    </g>
+  </g>
+
+  <!-- faint suit marks scattered -->
+  <g font-family="Georgia, serif" fill="#ffffff">
+    <text x="260" y="200" font-size="58" fill-opacity="0.035">&#9824;</text>
+    <text x="1600" y="260" font-size="70" fill-opacity="0.035">&#9829;</text>
+    <text x="900" y="140" font-size="50" fill-opacity="0.03">&#9827;</text>
+    <text x="450" y="920" font-size="60" fill-opacity="0.03">&#9830;</text>
+    <text x="1500" y="900" font-size="54" fill-opacity="0.03">&#9824;</text>
+  </g>
+
+  <rect width="1920" height="1080" fill="url(#ca-vignette)"/>
+</svg>

@@ -57,7 +57,7 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
     return (
       <div style={styles.wrap}>
         <style>{keyframes}</style>
-        <div style={styles.name}>{state.tournament.name}</div>
+        <div style={{ fontSize: "clamp(14px, 2vw, 24px)", fontWeight: 700 }}>{state.tournament.name}</div>
         <div style={styles.trophy}>🏆</div>
         <div style={styles.finishedTitle}>Турнир завершён!</div>
         {state.winner && <div style={styles.winnerName}>Победитель: {state.winner.nickname}</div>}
@@ -66,13 +66,14 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
   }
 
   const layout = settings?.layout ?? [];
+  const canvasStyle = settings?.backgroundUrl
+    ? { ...styles.canvas, backgroundImage: `url(${settings.backgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : styles.canvas;
 
   return (
-    <div style={styles.canvas}>
+    <div style={canvasStyle}>
       <style>{keyframes}</style>
       <div style={styles.connDot(connected)} />
-      {state.board?.logoUrl && <img src={state.board.logoUrl} alt="" style={styles.logo} />}
-      <div style={{ ...styles.name, color: accent }}>{state.tournament.name}</div>
 
       {state.announcement && (
         <div style={{ ...styles.announcement, background: accent }} key={state.announcement.text}>
@@ -155,21 +156,12 @@ const styles = {
     background: "#0b0f14",
     color: "#f2f3f5",
     fontFamily: "'Roboto Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    containerType: "size" as const,
   },
   loading: { fontSize: 24, color: "#8b98ab" },
-  logo: { position: "absolute" as const, top: 16, left: "50%", transform: "translateX(-50%)", width: 40, height: 40, borderRadius: 10, objectFit: "cover" as const },
   trophy: { fontSize: 140, marginTop: 20, animation: "popIn 0.6s ease-out" },
   finishedTitle: { fontSize: 44, fontWeight: 800, marginTop: 10 },
   winnerName: { fontSize: 32, color: "#c9a46a", fontWeight: 700, marginTop: 20 },
-  name: {
-    position: "absolute" as const,
-    top: 60,
-    left: "50%",
-    transform: "translateX(-50%)",
-    fontSize: "clamp(14px, 2vw, 24px)",
-    fontWeight: 700,
-    whiteSpace: "nowrap" as const,
-  },
   announcement: {
     position: "fixed" as const,
     top: 0,

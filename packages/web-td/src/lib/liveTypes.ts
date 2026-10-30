@@ -61,6 +61,8 @@ export const BOARD_BLOCK_TYPES = [
   "participants-list",
   "blind-structure",
   "custom-text",
+  "club-name",
+  "club-logo",
 ] as const;
 
 export type BoardBlockType = (typeof BOARD_BLOCK_TYPES)[number];
@@ -80,6 +82,7 @@ export interface BoardSettings {
   accentColor: string;
   soundEnabled: boolean;
   soundVolume: number;
+  backgroundUrl: string | null;
   layout: BoardBlockConfig[];
 }
 

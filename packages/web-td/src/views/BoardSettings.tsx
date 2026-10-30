@@ -1,23 +1,118 @@
-import { useEffect, useRef, useState } from "react";
-import { X, Plus, Trash2, Volume2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { X, Plus, Trash2, Volume2, Upload, Ban } from "lucide-react";
 import { apiGet, apiPut } from "../lib/api.js";
 import Toggle from "../components/Toggle.js";
-import { BLOCK_LABELS } from "./boardBlocks.js";
-import { BOARD_BLOCK_TYPES, type BoardBlockConfig, type BoardBlockType } from "../lib/liveTypes.js";
+import { BLOCK_LABELS, renderBoardBlock, ClockBlock } from "./boardBlocks.js";
+import { BOARD_BLOCK_TYPES, type BoardBlockConfig, type BoardBlockType, type LiveState } from "../lib/liveTypes.js";
 
 interface BoardSettingsShape {
   accentColor: string;
   soundEnabled: boolean;
   soundVolume: number;
+  backgroundUrl: string | null;
   layout: BoardBlockConfig[];
 }
 
 interface ClubResponse {
   id: string;
+  name: string;
+  logoUrl: string | null;
   boardSettings: BoardSettingsShape;
 }
 
 const MIN_SIZE = 5;
+
+const BACKGROUND_PRESETS = [
+  { id: "emerald-felt", label: "Сукно", url: "/backgrounds/emerald-felt.svg" },
+  { id: "gold-noir", label: "Золотой нуар", url: "/backgrounds/gold-noir.svg" },
+  { id: "chip-arena", label: "Фишки", url: "/backgrounds/chip-arena.svg" },
+];
+
+const BACKGROUND_MAX_SIDE = 1920;
+
+function fileToBackgroundDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Не удалось загрузить изображение"));
+      img.onload = () => {
+        const scale = Math.min(1, BACKGROUND_MAX_SIDE / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Board blocks render real tournament data over SSE — the editor has no
+ * running tournament to show, so it feeds them representative fake data
+ * instead. This is what makes the editor a true WYSIWYG preview rather than
+ * abstract placeholder boxes: the same renderBoardBlock/ClockBlock code runs
+ * here as on the real board. Club name/logo are the one part that's real
+ * (pulled from the club being edited), since those blocks should preview
+ * what the TD actually configured, not a fake name.
+ */
+function buildPreviewState(club: ClubResponse): LiveState {
+  const now = new Date().toISOString();
+  return {
+    tournament: {
+      id: "preview",
+      name: "Пятничный турнир",
+      format: "reentry_knockout",
+      status: "running",
+      buyIn: "1000",
+      startingStack: 20000,
+      maxSeats: 40,
+      reentryAllowedUntilLevel: null,
+      reentryPrice: "1000",
+      addonPrice: null,
+      addonStack: null,
+    },
+    clock: {
+      levelNumber: 4,
+      elapsedSeconds: 185,
+      isPaused: false,
+      asOf: now,
+      level: { levelNumber: 4, smallBlind: 200, bigBlind: 400, ante: 400, durationMinutes: 20, isBreak: false },
+      nextLevel: { levelNumber: 5, smallBlind: 300, bigBlind: 600, ante: 600, durationMinutes: 20, isBreak: false },
+    },
+    counts: { checkedIn: 22, active: 18, eliminated: 4, fieldSize: 22, tablesActive: 2 },
+    blindLevels: [
+      { levelNumber: 4, smallBlind: 200, bigBlind: 400, ante: 400, durationMinutes: 20, isBreak: false },
+      { levelNumber: 5, smallBlind: 300, bigBlind: 600, ante: 600, durationMinutes: 20, isBreak: false },
+      { levelNumber: 6, smallBlind: 0, bigBlind: 0, ante: 0, durationMinutes: 10, isBreak: true },
+    ],
+    tables: [
+      {
+        tableNo: 1,
+        maxSeats: 9,
+        seats: [
+          { seatNo: 1, playerId: "p1", nickname: "Алексей", avatarUrl: null, currentStack: 48500 },
+          { seatNo: 2, playerId: "p2", nickname: "Мария", avatarUrl: null, currentStack: 21200 },
+        ],
+      },
+    ],
+    eliminations: [
+      { playerId: "p3", nickname: "Игорь", eliminatedByNickname: "Алексей", place: 22, levelNumber: 3, at: now },
+      { playerId: "p4", nickname: "Светлана", eliminatedByNickname: "Мария", place: 21, levelNumber: 2, at: now },
+    ],
+    checkinList: [],
+    chipLeader: { playerId: "p1", nickname: "Алексей", stack: 48500 },
+    payoutPreview: { "1": 15000, "2": 9000, "3": 5000 },
+    announcement: null,
+    winner: null,
+    board: { clubName: club.name, logoUrl: club.logoUrl, settings: club.boardSettings },
+  };
+}
 
 function newId() {
   return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `b${Date.now()}${Math.random()}`;
@@ -29,7 +124,9 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
+  const [bgUploading, setBgUploading] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     apiGet<ClubResponse>("/api/td/club").then(setClub).catch((err) => setError(String(err.message ?? err)));
@@ -37,6 +134,21 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
 
   function patchSettings(patch: Partial<BoardSettingsShape>) {
     setClub((c) => (c ? { ...c, boardSettings: { ...c.boardSettings, ...patch } } : c));
+  }
+
+  async function handleBackgroundUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBgUploading(true);
+    try {
+      const backgroundUrl = await fileToBackgroundDataUrl(file);
+      patchSettings({ backgroundUrl });
+    } catch (err) {
+      setError(String((err as Error).message ?? err));
+    } finally {
+      setBgUploading(false);
+    }
   }
 
   function setLayout(next: BoardBlockConfig[]) {
@@ -70,7 +182,13 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
     }
   }
 
-  if (!club) {
+  const previewState = useMemo(
+    () => (club ? buildPreviewState(club) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [club?.name, club?.logoUrl],
+  );
+
+  if (!club || !previewState) {
     return (
       <div style={overlayStyles.wrap}>
         <div className="loading">Загрузка…</div>
@@ -133,7 +251,20 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
       )}
 
       <div style={overlayStyles.stage}>
-        <div ref={canvasRef} style={overlayStyles.canvas} onPointerDown={() => setSelectedId(null)}>
+        <div
+          ref={canvasRef}
+          style={{
+            ...overlayStyles.canvas,
+            ...(club.boardSettings.backgroundUrl
+              ? {
+                  backgroundImage: `url(${club.boardSettings.backgroundUrl})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : {}),
+          }}
+          onPointerDown={() => setSelectedId(null)}
+        >
           {layout.map((block) => (
             <CanvasBlock
               key={block.id}
@@ -143,6 +274,8 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
               onSelect={() => setSelectedId(block.id)}
               onUpdate={(patch) => updateBlock(block.id, patch)}
               onRemove={() => removeBlock(block.id)}
+              previewState={previewState}
+              accent={club.boardSettings.accentColor}
             />
           ))}
         </div>
@@ -194,6 +327,58 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
             style={{ width: 44, height: 28, padding: 1, background: "var(--card-2)", border: "1px solid var(--border)", borderRadius: 6 }}
           />
         </div>
+
+        <div style={{ marginBottom: 8 }}>
+          <div className="small" style={{ marginBottom: 6 }}>
+            Фон табло
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+            <button
+              type="button"
+              onClick={() => patchSettings({ backgroundUrl: null })}
+              style={{
+                ...overlayStyles.bgThumb,
+                background: "var(--card-2)",
+                border: !club.boardSettings.backgroundUrl ? "2px solid #4da3ff" : "1px solid var(--border)",
+              }}
+              title="Без фона"
+            >
+              <Ban size={16} color="var(--muted)" />
+            </button>
+            {BACKGROUND_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => patchSettings({ backgroundUrl: p.url })}
+                style={{
+                  ...overlayStyles.bgThumb,
+                  backgroundImage: `url(${p.url})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  border: club.boardSettings.backgroundUrl === p.url ? "2px solid #4da3ff" : "1px solid var(--border)",
+                }}
+                title={p.label}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => bgFileInputRef.current?.click()}
+              disabled={bgUploading}
+              style={{ ...overlayStyles.bgThumb, background: "var(--card-2)", border: "1px dashed var(--border)" }}
+              title="Загрузить свой фон"
+            >
+              <Upload size={16} color="var(--muted)" />
+            </button>
+            <input
+              ref={bgFileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handleBackgroundUpload}
+            />
+          </div>
+        </div>
+
         <div className="row">
           <span className="small" style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Volume2 size={14} /> Звук
@@ -212,6 +397,8 @@ function CanvasBlock({
   onSelect,
   onUpdate,
   onRemove,
+  previewState,
+  accent,
 }: {
   block: BoardBlockConfig;
   canvasRef: React.RefObject<HTMLDivElement>;
@@ -219,6 +406,8 @@ function CanvasBlock({
   onSelect: () => void;
   onUpdate: (patch: Partial<BoardBlockConfig>) => void;
   onRemove: () => void;
+  previewState: LiveState;
+  accent: string;
 }) {
   const dragState = useRef<{ mode: "move" | "resize"; startX: number; startY: number; block: BoardBlockConfig } | null>(
     null,
@@ -290,19 +479,27 @@ function CanvasBlock({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      <span
-        style={{
-          fontSize: "clamp(9px, 1.4vw, 13px)",
-          color: "#cfe3fb",
-          fontWeight: 700,
-          textAlign: "center",
-          padding: 4,
-          pointerEvents: "none",
-          overflow: "hidden",
-        }}
-      >
-        {block.type === "custom-text" ? block.text || "Текст" : BLOCK_LABELS[block.type]}
-      </span>
+      <div style={{ width: "100%", height: "100%", pointerEvents: "none", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {(block.type === "clock" ? (
+          <ClockBlock state={previewState} accent={accent} />
+        ) : block.type === "custom-text" && !block.text ? (
+          renderBoardBlock({ ...block, text: "Текст" }, previewState, accent)
+        ) : (
+          renderBoardBlock(block, previewState, accent)
+        )) ?? (
+          <span
+            style={{
+              fontSize: "clamp(9px, 1.4cqw, 13px)",
+              color: "#cfe3fb",
+              fontWeight: 700,
+              textAlign: "center",
+              padding: 4,
+            }}
+          >
+            {BLOCK_LABELS[block.type]}
+          </span>
+        )}
+      </div>
       {selected && (
         <>
           <button
@@ -396,6 +593,20 @@ const overlayStyles = {
     borderRadius: 8,
     overflow: "hidden" as const,
     touchAction: "none" as const,
+    containerType: "size" as const,
+    color: "#f2f3f5",
+    fontFamily: "'Roboto Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  },
+  bgThumb: {
+    width: 46,
+    height: 32,
+    borderRadius: 6,
+    cursor: "pointer",
+    padding: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   inspector: {
     padding: "10px 14px",

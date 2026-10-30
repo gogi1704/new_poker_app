@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="0%" r="85%">
+      <stop offset="0%" stop-color="#8c6a2f" stop-opacity="0.38"/>
+      <stop offset="35%" stop-color="#4a3a1c" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="50%" cy="100%" r="70%">
+      <stop offset="0%" stop-color="#8c6a2f" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#121418"/>
+      <stop offset="100%" stop-color="#05070a"/>
+    </linearGradient>
+    <radialGradient id="vignette2" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="65%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.65"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#base)"/>
+  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <rect width="1920" height="1080" fill="url(#glow2)"/>
+
+  <!-- faint diagonal light rays -->
+  <g opacity="0.05" stroke="#e8c37a" stroke-width="2">
+    <line x1="960" y1="0" x2="300" y2="1080"/>
+    <line x1="960" y1="0" x2="640" y2="1080"/>
+    <line x1="960" y1="0" x2="960" y2="1080"/>
+    <line x1="960" y1="0" x2="1280" y2="1080"/>
+    <line x1="960" y1="0" x2="1620" y2="1080"/>
+  </g>
+
+  <!-- faint corner suit marks -->
+  <text x="60" y="130" font-size="90" font-family="Georgia, serif" fill="#e8c37a" fill-opacity="0.05">&#9824;</text>
+  <text x="1760" y="130" font-size="90" font-family="Georgia, serif" fill="#e8c37a" fill-opacity="0.05">&#9829;</text>
+  <text x="60" y="1020" font-size="90" font-family="Georgia, serif" fill="#e8c37a" fill-opacity="0.05">&#9827;</text>
+  <text x="1760" y="1020" font-size="90" font-family="Georgia, serif" fill="#e8c37a" fill-opacity="0.05">&#9830;</text>
+
+  <rect width="1920" height="1080" fill="url(#vignette2)"/>
+</svg>
