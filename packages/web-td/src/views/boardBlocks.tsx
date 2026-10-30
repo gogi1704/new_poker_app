@@ -24,10 +24,43 @@ function avgStack(state: LiveState): number {
     : 0;
 }
 
-function Stat({ value, label }: { value: number | string; label: string }) {
+// A TD-chosen fontSize is "px at a 1920px-wide reference board" — converted to
+// cqw so it scales the same way between the small boxed editor preview and
+// the real fullscreen TV instead of rendering as a fixed, context-blind size.
+function customFontSize(px: number): string {
+  return `clamp(8px, ${((px / 1920) * 100).toFixed(3)}cqw, 400px)`;
+}
+
+// Seed value the inspector's slider starts from before a TD has picked their
+// own size — roughly each block's current default at the reference width.
+export const DEFAULT_FONT_SIZE: Partial<Record<BoardBlockType, number>> = {
+  "stats-players": 42,
+  "stats-tables": 42,
+  "stats-avg-stack": 42,
+  "chip-leader": 42,
+  "payout-preview": 18,
+  "knockout-ticker": 16,
+  "tables-seats": 14,
+  "participants-list": 15,
+  "blind-structure": 15,
+  "custom-text": 32,
+  "club-name": 28,
+};
+
+export type ClockProgressStyle = "bar" | "thick" | "ring";
+
+export const PROGRESS_STYLE_OPTIONS: { id: ClockProgressStyle; label: string }[] = [
+  { id: "bar", label: "Линия" },
+  { id: "thick", label: "Толстая" },
+  { id: "ring", label: "Кольцо" },
+];
+
+function Stat({ value, label, fontSize }: { value: number | string; label: string; fontSize?: number }) {
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: "clamp(20px, 4cqw, 42px)", fontWeight: 800 }}>{value}</div>
+      <div style={{ fontSize: fontSize ? customFontSize(fontSize) : "clamp(20px, 4cqw, 42px)", fontWeight: 800 }}>
+        {value}
+      </div>
       <div style={{ fontSize: "clamp(9px, 1.4cqw, 16px)", color: "#8b98ab", textTransform: "uppercase", letterSpacing: 1 }}>
         {label}
       </div>
@@ -45,52 +78,123 @@ function Stat({ value, label }: { value: number | string; label: string }) {
 // editor renders these same blocks inside a small boxed preview — cqw scales
 // relative to that box (given container-type:size on the block's ancestor)
 // so the preview matches the real board instead of rendering illegibly tiny.
-export function ClockBlock({ state, accent }: { state: LiveState; accent: string }) {
+export function ClockBlock({
+  state,
+  accent,
+  progressStyle = "bar",
+}: {
+  state: LiveState;
+  accent: string;
+  progressStyle?: ClockProgressStyle;
+}) {
   const elapsed = useTickingElapsed(state.clock);
   const level = state.clock?.level;
   const remaining = level ? level.durationMinutes * 60 - elapsed : 0;
   const totalSeconds = level ? level.durationMinutes * 60 : 0;
   const urgent = level && !level.isBreak && remaining <= 30;
+  const barColor = urgent ? "#ff6b6b" : accent;
+  const pct = totalSeconds > 0 ? Math.max(0, Math.min(100, (remaining / totalSeconds) * 100)) : 0;
 
   if (!state.clock) {
     return <div style={{ fontSize: "clamp(16px, 2.5cqw, 28px)", color: "#8b98ab" }}>Ожидание старта турнира…</div>;
   }
 
+  const breakBadge = level?.isBreak && (
+    <div
+      style={{
+        display: "inline-block",
+        fontSize: "clamp(12px, 1.8cqw, 22px)",
+        fontWeight: 800,
+        background: `${accent}26`,
+        color: accent,
+        padding: "0.4em 1em",
+        borderRadius: 999,
+        marginBottom: "0.5em",
+      }}
+    >
+      ПЕРЕРЫВ
+    </div>
+  );
+
+  const digits = (
+    <div
+      style={{
+        fontSize: progressStyle === "ring" ? "clamp(28px, 7cqw, 110px)" : "clamp(40px, 9cqw, 160px)",
+        fontWeight: 800,
+        fontVariantNumeric: "tabular-nums",
+        lineHeight: 1,
+        color: urgent ? "#ff6b6b" : "#f2f3f5",
+      }}
+    >
+      {formatMMSS(Math.max(0, remaining))}
+    </div>
+  );
+
+  const blindsLine = level && !level.isBreak && (
+    <div style={{ fontSize: "clamp(18px, 3.5cqw, 56px)", fontWeight: 700, marginTop: "0.4em" }}>
+      {level.smallBlind} / {level.bigBlind}
+      {level.ante > 0 && <span style={{ color: "#8b98ab", fontSize: "0.6em" }}> · ante {level.ante}</span>}
+    </div>
+  );
+
+  const nextLine = state.clock.nextLevel && (
+    <div style={{ fontSize: "clamp(10px, 1.3cqw, 20px)", color: "#8b98ab", marginTop: "0.5em" }}>
+      Следующий:{" "}
+      {state.clock.nextLevel.isBreak
+        ? "перерыв"
+        : `${state.clock.nextLevel.smallBlind} / ${state.clock.nextLevel.bigBlind}`}
+    </div>
+  );
+
+  if (progressStyle === "ring") {
+    const strokeWidth = 6;
+    const radius = 50 - strokeWidth / 2 - 1;
+    const circumference = 2 * Math.PI * radius;
+    const dashOffset = circumference * (1 - pct / 100);
+    return (
+      <div style={{ width: "100%", textAlign: "center" }}>
+        {breakBadge}
+        <div style={{ position: "relative", width: "clamp(140px, 32cqh, 420px)", height: "clamp(140px, 32cqh, 420px)", margin: "0 auto" }}>
+          <svg
+            viewBox="0 0 100 100"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "rotate(-90deg)" }}
+          >
+            <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} />
+            {totalSeconds > 0 && (
+              <circle
+                cx="50"
+                cy="50"
+                r={radius}
+                fill="none"
+                stroke={barColor}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={dashOffset}
+                style={{ transition: "stroke-dashoffset 1s linear, stroke 0.3s" }}
+              />
+            )}
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {digits}
+          </div>
+        </div>
+        {blindsLine}
+        {nextLine}
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: "100%", textAlign: "center" }}>
-      {level?.isBreak && (
-        <div
-          style={{
-            display: "inline-block",
-            fontSize: "clamp(12px, 1.8cqw, 22px)",
-            fontWeight: 800,
-            background: `${accent}26`,
-            color: accent,
-            padding: "0.4em 1em",
-            borderRadius: 999,
-            marginBottom: "0.5em",
-          }}
-        >
-          ПЕРЕРЫВ
-        </div>
-      )}
-      <div
-        style={{
-          fontSize: "clamp(40px, 9cqw, 160px)",
-          fontWeight: 800,
-          fontVariantNumeric: "tabular-nums",
-          lineHeight: 1,
-          color: urgent ? "#ff6b6b" : "#f2f3f5",
-        }}
-      >
-        {formatMMSS(Math.max(0, remaining))}
-      </div>
+      {breakBadge}
+      {digits}
       {totalSeconds > 0 && (
         <div
           style={{
             width: "80%",
             maxWidth: 500,
-            height: "clamp(4px, 0.8cqw, 8px)",
+            height: progressStyle === "thick" ? "clamp(10px, 1.6cqw, 22px)" : "clamp(4px, 0.8cqw, 8px)",
             borderRadius: 999,
             background: "rgba(255,255,255,0.1)",
             margin: "0.6em auto 0",
@@ -101,29 +205,16 @@ export function ClockBlock({ state, accent }: { state: LiveState; accent: string
             style={{
               height: "100%",
               borderRadius: 999,
-              width: `${Math.max(0, Math.min(100, (remaining / totalSeconds) * 100))}%`,
-              background: urgent ? "#ff6b6b" : accent,
+              width: `${pct}%`,
+              background: progressStyle === "thick" ? `linear-gradient(90deg, ${barColor}cc, ${barColor})` : barColor,
+              boxShadow: progressStyle === "thick" ? `0 0 12px ${barColor}` : undefined,
               transition: "width 1s linear",
             }}
           />
         </div>
       )}
-      {level && !level.isBreak && (
-        <div style={{ fontSize: "clamp(18px, 3.5cqw, 56px)", fontWeight: 700, marginTop: "0.4em" }}>
-          {level.smallBlind} / {level.bigBlind}
-          {level.ante > 0 && (
-            <span style={{ color: "#8b98ab", fontSize: "0.6em" }}> · ante {level.ante}</span>
-          )}
-        </div>
-      )}
-      {state.clock.nextLevel && (
-        <div style={{ fontSize: "clamp(10px, 1.3cqw, 20px)", color: "#8b98ab", marginTop: "0.5em" }}>
-          Следующий:{" "}
-          {state.clock.nextLevel.isBreak
-            ? "перерыв"
-            : `${state.clock.nextLevel.smallBlind} / ${state.clock.nextLevel.bigBlind}`}
-        </div>
-      )}
+      {blindsLine}
+      {nextLine}
     </div>
   );
 }
@@ -131,25 +222,29 @@ export function ClockBlock({ state, accent }: { state: LiveState; accent: string
 export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, accent: string): React.ReactNode {
   switch (block.type) {
     case "stats-players":
-      return <Stat value={state.counts.active} label="игроков" />;
+      return <Stat value={state.counts.active} label="игроков" fontSize={block.fontSize} />;
 
     case "stats-tables":
-      return <Stat value={state.counts.tablesActive} label="столов" />;
+      return <Stat value={state.counts.tablesActive} label="столов" fontSize={block.fontSize} />;
 
     case "stats-avg-stack":
-      return <Stat value={avgStack(state).toLocaleString("ru-RU")} label="средний стек" />;
+      return <Stat value={avgStack(state).toLocaleString("ru-RU")} label="средний стек" fontSize={block.fontSize} />;
 
     case "chip-leader":
       if (!state.chipLeader) return null;
       return (
-        <Stat value={state.chipLeader.stack.toLocaleString("ru-RU")} label={`лидер: ${state.chipLeader.nickname}`} />
+        <Stat
+          value={state.chipLeader.stack.toLocaleString("ru-RU")}
+          label={`лидер: ${state.chipLeader.nickname}`}
+          fontSize={block.fontSize}
+        />
       );
 
     case "custom-text":
       return (
         <div
           style={{
-            fontSize: block.fontSize ?? 24,
+            fontSize: customFontSize(block.fontSize ?? 32),
             fontWeight: 700,
             color: "#f2f3f5",
             textAlign: "center",
@@ -166,7 +261,7 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
       return (
         <div
           style={{
-            fontSize: "clamp(14px, 2.2cqw, 28px)",
+            fontSize: block.fontSize ? customFontSize(block.fontSize) : "clamp(14px, 2.2cqw, 28px)",
             fontWeight: 700,
             color: accent,
             textAlign: "center",
@@ -198,7 +293,10 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
       return (
         <div style={blockStyles.payoutStrip}>
           {entries.map((p) => (
-            <div key={p.place} style={blockStyles.payoutItem}>
+            <div
+              key={p.place}
+              style={block.fontSize ? { ...blockStyles.payoutItem, fontSize: customFontSize(block.fontSize) } : blockStyles.payoutItem}
+            >
               <span style={blockStyles.payoutPlace}>{p.place}.</span> {p.amount.toLocaleString("ru-RU")} ₽
             </div>
           ))}
@@ -209,7 +307,7 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
     case "knockout-ticker":
       if (!state.eliminations.length) return null;
       return (
-        <div style={blockStyles.ticker}>
+        <div style={block.fontSize ? { ...blockStyles.ticker, fontSize: customFontSize(block.fontSize) } : blockStyles.ticker}>
           {state.eliminations.slice(0, 5).map((e) => (
             <span key={`${e.playerId}-${e.at}`} style={blockStyles.tickerItem}>
               {e.place}. {e.nickname}
@@ -226,7 +324,10 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
             <div key={t.tableNo} style={blockStyles.tableCard}>
               <div style={{ ...blockStyles.tableTitle, color: accent }}>Стол {t.tableNo}</div>
               {t.seats.map((s) => (
-                <div key={s.seatNo ?? s.playerId} style={blockStyles.seatRow}>
+                <div
+                  key={s.seatNo ?? s.playerId}
+                  style={block.fontSize ? { ...blockStyles.seatRow, fontSize: customFontSize(block.fontSize) } : blockStyles.seatRow}
+                >
                   <span style={blockStyles.seatNo}>{s.seatNo ?? "—"}</span>
                   <span style={blockStyles.seatName}>{s.nickname}</span>
                   <span style={blockStyles.seatStack}>{s.currentStack?.toLocaleString("ru-RU") ?? "—"}</span>
@@ -244,7 +345,10 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
       return (
         <div style={blockStyles.participantsList}>
           {sorted.map((p) => (
-            <div key={p.playerId} style={blockStyles.participantRow}>
+            <div
+              key={p.playerId}
+              style={block.fontSize ? { ...blockStyles.participantRow, fontSize: customFontSize(block.fontSize) } : blockStyles.participantRow}
+            >
               <span style={blockStyles.participantName}>{p.nickname}</span>
               <span style={blockStyles.participantTable}>стол {p.tableNo}</span>
               <span style={blockStyles.participantStack}>{p.currentStack?.toLocaleString("ru-RU") ?? "—"}</span>
@@ -265,6 +369,7 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
               key={l.levelNumber}
               style={{
                 ...blockStyles.blindRow,
+                ...(block.fontSize ? { fontSize: customFontSize(block.fontSize) } : {}),
                 ...(l.levelNumber === current ? { color: accent, fontWeight: 800 } : {}),
               }}
             >

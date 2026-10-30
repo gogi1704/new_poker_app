@@ -96,7 +96,11 @@ export default function ClockDisplay({ tournamentId }: { tournamentId: string })
             overflow: "hidden",
           }}
         >
-          {block.type === "clock" ? <ClockBlock state={state} accent={accent} /> : renderBoardBlock(block, state, accent)}
+          {block.type === "clock" ? (
+            <ClockBlock state={state} accent={accent} progressStyle={block.progressStyle} />
+          ) : (
+            renderBoardBlock(block, state, accent)
+          )}
         </div>
       ))}
     </div>

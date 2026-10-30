@@ -76,6 +76,7 @@ export interface BoardBlockConfig {
   height: number;
   text?: string;
   fontSize?: number;
+  progressStyle?: "bar" | "thick" | "ring";
 }
 
 export interface BoardSettings {

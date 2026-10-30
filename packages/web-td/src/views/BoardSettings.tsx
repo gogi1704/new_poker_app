@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Plus, Trash2, Volume2, Upload, Ban } from "lucide-react";
 import { apiGet, apiPut } from "../lib/api.js";
 import Toggle from "../components/Toggle.js";
-import { BLOCK_LABELS, renderBoardBlock, ClockBlock } from "./boardBlocks.js";
+import { BLOCK_LABELS, renderBoardBlock, ClockBlock, DEFAULT_FONT_SIZE, PROGRESS_STYLE_OPTIONS } from "./boardBlocks.js";
 import { BOARD_BLOCK_TYPES, type BoardBlockConfig, type BoardBlockType, type LiveState } from "../lib/liveTypes.js";
 
 interface BoardSettingsShape {
@@ -291,25 +291,52 @@ export default function BoardSettings({ onClose }: { onClose: () => void }) {
             </button>
           </div>
           {selected.type === "custom-text" && (
+            <input
+              style={overlayStyles.textInput}
+              value={selected.text ?? ""}
+              placeholder="Текст надписи"
+              onChange={(e) => updateBlock(selected.id, { text: e.target.value })}
+            />
+          )}
+          {selected.type !== "club-logo" && selected.type !== "clock" && (
             <>
-              <input
-                style={overlayStyles.textInput}
-                value={selected.text ?? ""}
-                placeholder="Текст надписи"
-                onChange={(e) => updateBlock(selected.id, { text: e.target.value })}
-              />
               <div className="small muted" style={{ marginTop: 8, marginBottom: 4 }}>
-                Размер шрифта: {selected.fontSize ?? 32}px
+                Размер шрифта: {selected.fontSize ?? DEFAULT_FONT_SIZE[selected.type] ?? 24}px
               </div>
               <input
                 type="range"
                 min={10}
                 max={160}
-                value={selected.fontSize ?? 32}
+                value={selected.fontSize ?? DEFAULT_FONT_SIZE[selected.type] ?? 24}
                 onChange={(e) => updateBlock(selected.id, { fontSize: Number(e.target.value) })}
                 style={{ width: "100%" }}
               />
             </>
+          )}
+          {selected.type === "clock" && (
+            <div style={{ marginTop: 8 }}>
+              <div className="small muted" style={{ marginBottom: 6 }}>
+                Стиль прогресс-бара
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {PROGRESS_STYLE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      ...overlayStyles.smallBtn,
+                      width: "auto",
+                      flex: 1,
+                      border: (selected.progressStyle ?? "bar") === opt.id ? "2px solid #4da3ff" : undefined,
+                    }}
+                    onClick={() => updateBlock(selected.id, { progressStyle: opt.id })}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           <div className="small muted" style={{ marginTop: 8 }}>
             Перетащите блок за тело, чтобы переместить, за правый нижний угол — чтобы изменить размер.
@@ -481,7 +508,7 @@ function CanvasBlock({
     >
       <div style={{ width: "100%", height: "100%", pointerEvents: "none", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {(block.type === "clock" ? (
-          <ClockBlock state={previewState} accent={accent} />
+          <ClockBlock state={previewState} accent={accent} progressStyle={block.progressStyle} />
         ) : block.type === "custom-text" && !block.text ? (
           renderBoardBlock({ ...block, text: "Текст" }, previewState, accent)
         ) : (

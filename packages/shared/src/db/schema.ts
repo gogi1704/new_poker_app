@@ -90,8 +90,10 @@ export interface BoardBlockConfig {
   height: number;
   /** "custom-text" only. */
   text?: string;
-  /** "custom-text" only, px. */
+  /** Any text-bearing block except "clock" — px at a 1920px-wide reference board, scaled responsively from there. */
   fontSize?: number;
+  /** "clock" only. */
+  progressStyle?: "bar" | "thick" | "ring";
 }
 
 export interface BoardSettings {

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Trophy, Activity, Users, Star, List, Calendar, type LucideIcon } from "lucide-react";
 import { apiGet } from "../lib/api.js";
-import type { TournamentSummary } from "../lib/types.js";
+import type { TournamentDetail, TournamentSummary } from "../lib/types.js";
 import { formatLabel } from "../lib/format.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
+import { setCachedTournamentDetail } from "../lib/tournamentDetailCache.js";
 import TournamentCard from "../components/TournamentCard.js";
 
 function groupByDate(list: TournamentSummary[]) {
@@ -24,7 +25,15 @@ export default function Tournaments({ active, onOpen }: { active: boolean; onOpe
   const [view, setView] = useState<"list" | "calendar">("list");
 
   function load() {
-    return apiGet<TournamentSummary[]>("/api/tournaments").then(setTournaments);
+    return apiGet<TournamentSummary[]>("/api/tournaments").then((list) => {
+      setTournaments(list);
+      // Warm the detail cache (participants included) right after the list
+      // lands, so opening any tournament card is instant instead of showing
+      // its own "Загрузка…" while TournamentDetail fetches from scratch.
+      for (const t of list) {
+        apiGet<TournamentDetail>(`/api/tournaments/${t.id}`).then(setCachedTournamentDetail).catch(() => {});
+      }
+    });
   }
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { apiGet, apiPost } from "../lib/api.js";
 import type { TournamentDetail as TournamentDetailT } from "../lib/types.js";
 import { formatDateTime, formatLabel, formatMoney } from "../lib/format.js";
 import { useCountdown } from "../lib/useCountdown.js";
+import { getCachedTournamentDetail, setCachedTournamentDetail } from "../lib/tournamentDetailCache.js";
 import Avatar from "../components/Avatar.js";
 
 const ROMAN = ["I", "II", "III"];
@@ -17,13 +18,21 @@ export default function TournamentDetail({
   onClose: () => void;
   onChanged?: () => void;
 }) {
-  const [tournament, setTournament] = useState<TournamentDetailT | null>(null);
+  const [tournament, setTournament] = useState<TournamentDetailT | null>(() => getCachedTournamentDetail(id));
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const load = () => apiGet<TournamentDetailT>(`/api/tournaments/${id}`).then(setTournament);
+  const load = () =>
+    apiGet<TournamentDetailT>(`/api/tournaments/${id}`).then((data) => {
+      setTournament(data);
+      setCachedTournamentDetail(data);
+    });
 
   useEffect(() => {
+    // Show whatever's cached from the Tournaments tab's prefetch immediately
+    // (avoids a loading flash), then refetch in the background to pick up
+    // anything that changed since.
+    setTournament(getCachedTournamentDetail(id));
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);

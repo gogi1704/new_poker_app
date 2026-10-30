@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { schema } from "@poker/shared";
 import { buildLiveState } from "../services/live.js";
-import { subscribeTournament } from "../services/realtime.js";
+import { subscribeTournament, subscribeClubBoard } from "../services/realtime.js";
 
 /**
  * Read-only live tournament state — same payload for the TD console, the TV
@@ -41,16 +41,21 @@ export default async function realtimeRoutes(fastify: FastifyInstance) {
       reply.raw.write(`data: ${JSON.stringify(state)}\n\n`);
     };
 
-    // Initial snapshot, then one push per change. A comment every 20s keeps
-    // proxies/browsers from timing out an idle connection.
+    // Initial snapshot, then one push per change — either this tournament's
+    // own state, or a club-wide board-settings save (layout/colors/fonts/
+    // background apply to every open board, not just one tournament).
+    // A comment every 20s keeps proxies/browsers from timing out an idle
+    // connection.
     send();
-    const unsubscribe = subscribeTournament(id, send);
+    const unsubscribeTournament = subscribeTournament(id, send);
+    const unsubscribeBoard = subscribeClubBoard(send);
     const keepAlive = setInterval(() => !closed && reply.raw.write(": ping\n\n"), 20_000);
 
     request.raw.on("close", () => {
       closed = true;
       clearInterval(keepAlive);
-      unsubscribe();
+      unsubscribeTournament();
+      unsubscribeBoard();
     });
   });
 }

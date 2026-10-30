@@ -4,6 +4,7 @@ import { z } from "zod";
 import { schema } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { requireOwner } from "../services/staff.js";
+import { publishClubBoardUpdate } from "../services/realtime.js";
 
 const boardBlockSchema = z.object({
   id: z.string().min(1).max(100),
@@ -14,6 +15,7 @@ const boardBlockSchema = z.object({
   height: z.number().min(1).max(100),
   text: z.string().max(200).optional(),
   fontSize: z.number().min(8).max(200).optional(),
+  progressStyle: z.enum(["bar", "thick", "ring"]).optional(),
 });
 
 const boardSettingsSchema = z.object({
@@ -55,6 +57,11 @@ export default async function tdClubRoutes(fastify: FastifyInstance) {
       .where(eq(schema.clubs.id, club.id))
       .returning();
 
-    return updated;
+    // Club name/logo/board settings are all rendered on every open /clock/:id
+    // TV stream — push them a fresh snapshot now instead of leaving an
+    // already-open board stale until its next unrelated tournament event.
+    publishClubBoardUpdate();
+
+    return { ...updated, boardSettings: schema.normalizeBoardSettings(updated.boardSettings) };
   });
 }
