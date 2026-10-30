@@ -622,7 +622,8 @@ const overlayStyles = {
     touchAction: "none" as const,
     containerType: "size" as const,
     color: "#f2f3f5",
-    fontFamily: "'Roboto Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontFamily: "'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontWeight: 500,
   },
   bgThumb: {
     width: 46,
