@@ -132,30 +132,21 @@ export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
  * carry forward a slot-based arrangement that has no sensible freeform
  * equivalent; the one-club admin can always re-arrange from there.
  *
- * club-name/club-logo used to be hardcoded, always-on elements (not part of
- * the layout array at all), so any freeform layout saved before they became
- * regular blocks won't have them — back-fill both so upgrading doesn't
- * silently drop the club branding that was already on screen.
+ * club-name/club-logo are regular, deletable blocks like any other — do not
+ * re-add them when a freeform layout is missing one; that used to happen as
+ * a one-time migration for layouts saved before they existed, but left in
+ * permanently it silently undoes a TD's deliberate "remove this block" save.
  */
 export function normalizeBoardSettings(raw: unknown): BoardSettings {
   const r = (raw ?? {}) as Partial<BoardSettings>;
   const isFreeform =
     Array.isArray(r.layout) && r.layout.every((b) => typeof b === "object" && b !== null && "x" in b && "y" in b);
-  const layout = isFreeform ? r.layout! : DEFAULT_BOARD_SETTINGS.layout;
-  const hasLogo = layout.some((b) => b.type === "club-logo");
-  const hasName = layout.some((b) => b.type === "club-name");
-  const defaultLogo = DEFAULT_BOARD_SETTINGS.layout.find((b) => b.type === "club-logo")!;
-  const defaultName = DEFAULT_BOARD_SETTINGS.layout.find((b) => b.type === "club-name")!;
-  const backfilled =
-    isFreeform && (!hasLogo || !hasName)
-      ? [...(hasLogo ? [] : [defaultLogo]), ...(hasName ? [] : [defaultName]), ...layout]
-      : layout;
   return {
     accentColor: r.accentColor ?? DEFAULT_BOARD_SETTINGS.accentColor,
     soundEnabled: r.soundEnabled ?? DEFAULT_BOARD_SETTINGS.soundEnabled,
     soundVolume: r.soundVolume ?? DEFAULT_BOARD_SETTINGS.soundVolume,
     backgroundUrl: r.backgroundUrl ?? null,
-    layout: backfilled,
+    layout: isFreeform ? r.layout! : DEFAULT_BOARD_SETTINGS.layout,
   };
 }
 
