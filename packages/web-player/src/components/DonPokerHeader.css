@@ -1,0 +1,47 @@
+.header.header--don-poker {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  background: #001009;
+}
+
+.don-poker-banner {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.don-poker-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 20px 16px;
+}
+
+.don-poker-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px var(--accent-border), 0 4px 14px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+}
+
+.don-poker-name {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #f0d9a0, #c9a24a 45%, #8c6a2f);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.don-poker-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}

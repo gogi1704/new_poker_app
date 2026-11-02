@@ -1,4 +1,4 @@
-import { Club } from "lucide-react";
+import "./DonPokerHeader.css";
 
 export interface ClubInfo {
   name: string;
@@ -6,19 +6,33 @@ export interface ClubInfo {
 }
 
 export default function Header({ club }: { club: ClubInfo | null }) {
+  // A club without its own icon configured yet (Club Settings in the TD
+  // panel) falls back to the default Don-Poker banner rather than showing a
+  // blank/placeholder header.
+  if (!club?.logoUrl) {
+    return (
+      <header className="header header--don-poker">
+        <img
+          className="don-poker-banner"
+          src="/don-poker-logo.png"
+          alt="Don-Poker — Poker Club"
+          width={2117}
+          height={743}
+          fetchPriority="high"
+        />
+      </header>
+    );
+  }
+
   return (
-    <div className="header">
-      <div className="logo">
-        {club?.logoUrl ? (
-          <img src={club.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} />
-        ) : (
-          <Club size={22} />
-        )}
+    <header className="header header--don-poker">
+      <div className="don-poker-brand">
+        <img className="don-poker-icon" src={club.logoUrl} alt="" />
+        <div>
+          <div className="don-poker-name">{club.name}</div>
+          <div className="don-poker-sub">POKER CLUB</div>
+        </div>
       </div>
-      <div>
-        <div className="club-name">{club?.name ?? "МОЙ ПОКЕР КЛУБ"}</div>
-        <div className="club-sub">POKER CLUB</div>
-      </div>
-    </div>
+    </header>
   );
 }
