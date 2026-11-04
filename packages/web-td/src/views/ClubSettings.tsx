@@ -6,6 +6,7 @@ interface ClubResponse {
   id: string;
   name: string;
   logoUrl: string | null;
+  hasAdminPassword: boolean;
 }
 
 const LOGO_SIZE = 160;
@@ -40,6 +41,10 @@ export default function ClubSettings({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+
   useEffect(() => {
     apiGet<ClubResponse>("/api/td/club").then(setClub).catch((err) => setError(String(err.message ?? err)));
   }, []);
@@ -70,6 +75,22 @@ export default function ClubSettings({ onClose }: { onClose: () => void }) {
       setError(String((err as Error).message ?? err));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function setPassword(password: string) {
+    if (!club) return;
+    setPasswordSaving(true);
+    setPasswordMessage(null);
+    try {
+      const updated = await apiPut<ClubResponse>("/api/td/club", { password });
+      setClub(updated);
+      setNewPassword("");
+      setPasswordMessage(password ? "Пароль сохранён." : "Вход по паролю отключён.");
+    } catch (err) {
+      setPasswordMessage(String((err as Error).message ?? err));
+    } finally {
+      setPasswordSaving(false);
     }
   }
 
@@ -131,9 +152,51 @@ export default function ClubSettings({ onClose }: { onClose: () => void }) {
         настраиваются отдельно, в «Настройке табло».
       </div>
 
-      <button className="btn btn-primary" disabled={saving} onClick={handleSave}>
+      <button className="btn btn-primary" disabled={saving} onClick={handleSave} style={{ marginBottom: 20 }}>
         {saving ? "Сохраняем…" : "Сохранить"}
       </button>
+
+      <div className="card">
+        <div style={{ marginBottom: 10 }}>
+          <strong>Вход в браузере</strong>
+          <div className="small muted" style={{ marginTop: 4 }}>
+            {club.hasAdminPassword
+              ? "Пароль установлен — панель можно открыть в обычном браузере."
+              : "Пароль не задан — панель открывается только внутри Telegram."}
+          </div>
+        </div>
+
+        <div className="field" style={{ marginBottom: 10 }}>
+          <label>{club.hasAdminPassword ? "Новый пароль" : "Задать пароль"}</label>
+          <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+        </div>
+
+        {passwordMessage && (
+          <div className="small" style={{ color: "var(--muted)", marginBottom: 10 }}>
+            {passwordMessage}
+          </div>
+        )}
+
+        <div className="row" style={{ gap: 8 }}>
+          <button
+            className="btn btn-primary"
+            disabled={passwordSaving || !newPassword}
+            onClick={() => setPassword(newPassword)}
+          >
+            {passwordSaving ? "Сохраняем…" : "Сохранить пароль"}
+          </button>
+          {club.hasAdminPassword && (
+            <button
+              className="btn btn-secondary"
+              style={{ width: "auto" }}
+              disabled={passwordSaving}
+              onClick={() => setPassword("")}
+            >
+              Отключить
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

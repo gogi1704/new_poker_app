@@ -164,6 +164,10 @@ export const clubs = pgTable("clubs", {
   logoUrl: text("logo_url"),
   timezone: text("timezone").notNull().default("Europe/Moscow"),
   boardSettings: jsonb("board_settings").$type<BoardSettings>().notNull().default(DEFAULT_BOARD_SETTINGS),
+  // Lets staff open the TD panel from a plain browser (no Telegram) via a
+  // password instead of Telegram identity. Null = browser password login is
+  // disabled. Format "scryptHashHex:saltHex" — see services/admin-password.ts.
+  adminPasswordHash: text("admin_password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

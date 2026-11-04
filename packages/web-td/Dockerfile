@@ -18,10 +18,6 @@ COPY packages/web-td packages/web-td
 # nginx below proxies /api/ to the api container.
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-# Bot username (no @) for the Telegram Login Widget shown when the panel is
-# opened in a plain browser instead of inside Telegram — see .env.production.example.
-ARG VITE_BOT_USERNAME=""
-ENV VITE_BOT_USERNAME=$VITE_BOT_USERNAME
 RUN pnpm --filter @poker/web-td build
 
 FROM nginx:1.27-alpine

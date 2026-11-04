@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Settings, Users, Tv2, Building2, QrCode } from "lucide-react";
-import { authenticate, authenticateWithWidget, getToken, setToken, apiGet, type TelegramWidgetUser } from "./lib/api.js";
-import TelegramLoginButton from "./components/TelegramLoginButton.js";
+import { authenticate, authenticateWithPassword, getToken, setToken, apiGet } from "./lib/api.js";
+import PasswordLogin from "./components/PasswordLogin.js";
 import TournamentList from "./views/TournamentList.js";
 import TournamentForm from "./views/TournamentForm.js";
 import LiveConsole from "./views/LiveConsole.js";
@@ -39,13 +39,11 @@ export default function App() {
     );
   }
 
-  function handleWidgetAuth(user: TelegramWidgetUser) {
-    authenticateWithWidget(user)
-      .then((data) => {
-        setToken(data.token);
-        return loadMe();
-      })
-      .catch((err) => setAuth({ status: "error", message: String((err as Error).message ?? err) }));
+  function handlePasswordAuth(password: string) {
+    return authenticateWithPassword(password).then((data) => {
+      setToken(data.token);
+      return loadMe();
+    });
   }
 
   useEffect(() => {
@@ -76,9 +74,12 @@ export default function App() {
   if (auth.status === "loading") return <div className="loading">Входим…</div>;
   if (auth.status === "login") {
     return (
-      <div className="loading" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-        <div>Войдите через Telegram, чтобы открыть панель в браузере</div>
-        <TelegramLoginButton onAuth={handleWidgetAuth} />
+      <div
+        className="loading"
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, paddingTop: 64 }}
+      >
+        <div>Войдите, чтобы открыть панель в браузере</div>
+        <PasswordLogin onSubmit={handlePasswordAuth} />
       </div>
     );
   }

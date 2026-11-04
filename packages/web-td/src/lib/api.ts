@@ -42,25 +42,15 @@ export async function authenticate(initData: string) {
   return res.json() as Promise<{ token: string; player: { id: string; nickname: string } }>;
 }
 
-export interface TelegramWidgetUser {
-  id: number;
-  first_name?: string;
-  last_name?: string;
-  username?: string;
-  photo_url?: string;
-  auth_date: number;
-  hash: string;
-}
-
-export async function authenticateWithWidget(user: TelegramWidgetUser) {
-  const res = await fetch(`${API_BASE_URL}/api/auth/telegram-widget`, {
+export async function authenticateWithPassword(password: string) {
+  const res = await fetch(`${API_BASE_URL}/api/auth/admin-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(user),
+    body: JSON.stringify({ password }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => null);
     throw new Error(data?.error ?? `auth failed: ${res.status}`);
   }
-  return res.json() as Promise<{ token: string; player: { id: string; nickname: string } }>;
+  return res.json() as Promise<{ token: string; club: { id: string; name: string } }>;
 }

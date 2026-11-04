@@ -16,6 +16,10 @@ export async function getStaffAccount(db: Database, clubId: string, telegramId: 
  * Resolves the staff account for the current request and sends 401/403 if it's
  * missing. Returns the account (or null after already replying) so callers can
  * `if (!staff) return;` in one line.
+ *
+ * A request authenticated via the browser admin password (no Telegram
+ * identity at all, see plugins/auth.ts) is treated as a synthetic owner —
+ * it's a single club-wide master key, not tied to any one staff row.
  */
 export async function requireStaff(
   request: FastifyRequest,
@@ -23,6 +27,9 @@ export async function requireStaff(
   db: Database,
   clubId: string,
 ) {
+  if (request.adminClubId === clubId) {
+    return { id: "admin-password", clubId, telegramId: "admin", role: "owner" as StaffRole, createdAt: new Date() };
+  }
   if (!request.telegramId) {
     reply.code(401).send({ error: "unauthorized" });
     return null;

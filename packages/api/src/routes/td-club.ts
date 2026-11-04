@@ -5,6 +5,7 @@ import { schema } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { requireOwner } from "../services/staff.js";
 import { publishClubBoardUpdate } from "../services/realtime.js";
+import { hashAdminPassword } from "../lib/admin-password.js";
 
 const boardBlockSchema = z.object({
   id: z.string().min(1).max(100),
@@ -35,7 +36,12 @@ export default async function tdClubRoutes(fastify: FastifyInstance) {
     const club = await getDefaultClub(fastify.db);
     const staff = await requireOwner(request, reply, fastify.db, club.id);
     if (!staff) return;
-    return { ...club, boardSettings: schema.normalizeBoardSettings(club.boardSettings) };
+    const { adminPasswordHash, ...rest } = club;
+    return {
+      ...rest,
+      boardSettings: schema.normalizeBoardSettings(club.boardSettings),
+      hasAdminPassword: adminPasswordHash !== null,
+    };
   });
 
   fastify.put("/api/td/club", async (request, reply) => {
@@ -48,6 +54,9 @@ export default async function tdClubRoutes(fastify: FastifyInstance) {
         name: z.string().trim().min(1).max(60).optional(),
         logoUrl: z.string().max(500_000).nullable().optional(),
         boardSettings: boardSettingsSchema.optional(),
+        // undefined = leave unchanged, "" = disable browser password login,
+        // non-empty = set/replace the password.
+        password: z.string().max(200).optional(),
       })
       .parse(request.body);
 
@@ -57,6 +66,9 @@ export default async function tdClubRoutes(fastify: FastifyInstance) {
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.logoUrl !== undefined ? { logoUrl: body.logoUrl } : {}),
         ...(body.boardSettings !== undefined ? { boardSettings: body.boardSettings } : {}),
+        ...(body.password !== undefined
+          ? { adminPasswordHash: body.password === "" ? null : hashAdminPassword(body.password) }
+          : {}),
       })
       .where(eq(schema.clubs.id, club.id))
       .returning();
@@ -66,6 +78,11 @@ export default async function tdClubRoutes(fastify: FastifyInstance) {
     // already-open board stale until its next unrelated tournament event.
     publishClubBoardUpdate();
 
-    return { ...updated, boardSettings: schema.normalizeBoardSettings(updated.boardSettings) };
+    const { adminPasswordHash, ...rest } = updated;
+    return {
+      ...rest,
+      boardSettings: schema.normalizeBoardSettings(updated.boardSettings),
+      hasAdminPassword: adminPasswordHash !== null,
+    };
   });
 }
