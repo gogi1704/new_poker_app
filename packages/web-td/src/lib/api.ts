@@ -41,3 +41,26 @@ export async function authenticate(initData: string) {
   if (!res.ok) throw new Error(`auth failed: ${res.status}`);
   return res.json() as Promise<{ token: string; player: { id: string; nickname: string } }>;
 }
+
+export interface TelegramWidgetUser {
+  id: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+}
+
+export async function authenticateWithWidget(user: TelegramWidgetUser) {
+  const res = await fetch(`${API_BASE_URL}/api/auth/telegram-widget`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(user),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? `auth failed: ${res.status}`);
+  }
+  return res.json() as Promise<{ token: string; player: { id: string; nickname: string } }>;
+}

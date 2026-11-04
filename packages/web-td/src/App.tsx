@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Settings, Users, Tv2, Building2, QrCode } from "lucide-react";
-import { authenticate, setToken, apiGet } from "./lib/api.js";
+import { authenticate, authenticateWithWidget, getToken, setToken, apiGet, type TelegramWidgetUser } from "./lib/api.js";
+import TelegramLoginButton from "./components/TelegramLoginButton.js";
 import TournamentList from "./views/TournamentList.js";
 import TournamentForm from "./views/TournamentForm.js";
 import LiveConsole from "./views/LiveConsole.js";
@@ -12,6 +13,7 @@ import ScanCheckin from "./views/ScanCheckin.js";
 
 type AuthState =
   | { status: "loading" }
+  | { status: "login" }
   | { status: "error"; message: string }
   | { status: "ready"; club: { id: string; name: string }; role: string };
 
@@ -31,27 +33,55 @@ export default function App() {
   const [view, setView] = useState<View>({ name: "list" });
   const [refreshKey, setRefreshKey] = useState(0);
 
+  function loadMe() {
+    return apiGet<{ club: { id: string; name: string }; staff: { role: string } }>("/api/td/me").then((me) =>
+      setAuth({ status: "ready", club: me.club, role: me.staff.role }),
+    );
+  }
+
+  function handleWidgetAuth(user: TelegramWidgetUser) {
+    authenticateWithWidget(user)
+      .then((data) => {
+        setToken(data.token);
+        return loadMe();
+      })
+      .catch((err) => setAuth({ status: "error", message: String((err as Error).message ?? err) }));
+  }
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     tg?.ready();
     tg?.expand();
 
     const initData = tg?.initData;
-    if (!initData) {
-      setAuth({ status: "error", message: "Откройте панель через команду /td в боте клуба." });
+    if (initData) {
+      authenticate(initData)
+        .then((data) => {
+          setToken(data.token);
+          return loadMe();
+        })
+        .catch((err) => setAuth({ status: "error", message: String((err as Error).message ?? err) }));
       return;
     }
 
-    authenticate(initData)
-      .then((data) => {
-        setToken(data.token);
-        return apiGet<{ club: { id: string; name: string }; staff: { role: string } }>("/api/td/me");
-      })
-      .then((me) => setAuth({ status: "ready", club: me.club, role: me.staff.role }))
-      .catch((err) => setAuth({ status: "error", message: String((err as Error).message ?? err) }));
+    // No Telegram app around us (plain browser): reuse a still-valid stored
+    // session if we have one, otherwise fall back to the Login Widget.
+    if (getToken()) {
+      loadMe().catch(() => setAuth({ status: "login" }));
+    } else {
+      setAuth({ status: "login" });
+    }
   }, []);
 
   if (auth.status === "loading") return <div className="loading">Входим…</div>;
+  if (auth.status === "login") {
+    return (
+      <div className="loading" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+        <div>Войдите через Telegram, чтобы открыть панель в браузере</div>
+        <TelegramLoginButton onAuth={handleWidgetAuth} />
+      </div>
+    );
+  }
   if (auth.status === "error") return <div className="loading">{auth.message}</div>;
 
   function closeToList() {

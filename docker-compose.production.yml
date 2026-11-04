@@ -62,6 +62,8 @@ services:
     build:
       context: .
       dockerfile: packages/web-td/Dockerfile
+      args:
+        VITE_BOT_USERNAME: ${BOT_USERNAME}
     restart: unless-stopped
     depends_on:
       - api
