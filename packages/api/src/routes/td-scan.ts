@@ -1,11 +1,62 @@
 import type { FastifyInstance } from "fastify";
 import { and, asc, eq, ne, notInArray, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { schema } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { requireStaff } from "../services/staff.js";
 import { publishTournamentUpdate } from "../services/realtime.js";
+
+type RegisterResult = { ok: true; status: string } | { ok: false; code: number; error: string };
+
+// Shared by register-player (existing player, picked from a search/scan) and
+// register-walkin (brand-new player created on the spot) — everything past
+// "we have a playerId" is identical: same seat-cap check, same idempotency.
+async function registerPlayerInTournament(
+  fastify: FastifyInstance,
+  clubId: string,
+  tournamentId: string,
+  playerId: string,
+): Promise<RegisterResult> {
+  const [tournament] = await fastify.db
+    .select()
+    .from(schema.tournaments)
+    .where(and(eq(schema.tournaments.id, tournamentId), eq(schema.tournaments.clubId, clubId)));
+  if (!tournament) return { ok: false, code: 404, error: "not found" };
+  if (tournament.status !== "scheduled" && tournament.status !== "registering") {
+    return { ok: false, code: 409, error: "registration is closed for this tournament" };
+  }
+
+  const [existing] = await fastify.db
+    .select()
+    .from(schema.registrations)
+    .where(and(eq(schema.registrations.tournamentId, tournamentId), eq(schema.registrations.playerId, playerId)));
+
+  if (existing && existing.status !== "cancelled") {
+    return { ok: true, status: existing.status };
+  }
+
+  const [{ seatsFilled }] = await fastify.db
+    .select({ seatsFilled: sql<number>`count(*)` })
+    .from(schema.registrations)
+    .where(and(eq(schema.registrations.tournamentId, tournamentId), ne(schema.registrations.status, "cancelled")));
+  if (Number(seatsFilled) >= tournament.maxSeats) {
+    return { ok: false, code: 409, error: "tournament is full" };
+  }
+
+  if (existing) {
+    await fastify.db
+      .update(schema.registrations)
+      .set({ status: "registered", registeredAt: new Date() })
+      .where(eq(schema.registrations.id, existing.id));
+  } else {
+    await fastify.db.insert(schema.registrations).values({ tournamentId, playerId });
+  }
+
+  publishTournamentUpdate(tournamentId);
+  return { ok: true, status: "registered" };
+}
 
 /**
  * General-purpose walk-in desk: TD scans a player's "My QR" (same signed
@@ -78,42 +129,38 @@ export default async function tdScanRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
     const { playerId } = z.object({ playerId: z.string().uuid() }).parse(request.body);
 
-    const [tournament] = await fastify.db
-      .select()
-      .from(schema.tournaments)
-      .where(and(eq(schema.tournaments.id, id), eq(schema.tournaments.clubId, club.id)));
-    if (!tournament) return reply.code(404).send({ error: "not found" });
-    if (tournament.status !== "scheduled" && tournament.status !== "registering") {
-      return reply.code(409).send({ error: "registration is closed for this tournament" });
-    }
+    const result = await registerPlayerInTournament(fastify, club.id, id, playerId);
+    if (!result.ok) return reply.code(result.code).send({ error: result.error });
+    return { status: result.status };
+  });
 
-    const [existing] = await fastify.db
-      .select()
-      .from(schema.registrations)
-      .where(and(eq(schema.registrations.tournamentId, id), eq(schema.registrations.playerId, playerId)));
+  // Offline/walk-in desk: creates a brand-new player with a synthetic identity
+  // (no Telegram account needed — see docs/OFFLINE.md) and registers them in
+  // one step. Used when the TD adds someone in person who has never opened the bot.
+  fastify.post("/api/td/tournaments/:id/register-walkin", async (request, reply) => {
+    const club = await getDefaultClub(fastify.db);
+    const staff = await requireStaff(request, reply, fastify.db, club.id);
+    if (!staff) return;
 
-    if (existing && existing.status !== "cancelled") {
-      return { status: existing.status };
-    }
+    const { id } = request.params as { id: string };
+    const { nickname } = z.object({ nickname: z.string().trim().min(1).max(100) }).parse(request.body);
 
-    const [{ seatsFilled }] = await fastify.db
-      .select({ seatsFilled: sql<number>`count(*)` })
-      .from(schema.registrations)
-      .where(and(eq(schema.registrations.tournamentId, id), ne(schema.registrations.status, "cancelled")));
-    if (Number(seatsFilled) >= tournament.maxSeats) {
-      return reply.code(409).send({ error: "tournament is full" });
-    }
+    const telegramId = `local-${randomUUID()}`;
+    const [player] = await fastify.db
+      .insert(schema.players)
+      .values({ telegramId, nickname, derivedEmail: `local_${randomUUID()}@local.user` })
+      .returning();
 
-    if (existing) {
-      await fastify.db
-        .update(schema.registrations)
-        .set({ status: "registered", registeredAt: new Date() })
-        .where(eq(schema.registrations.id, existing.id));
-    } else {
-      await fastify.db.insert(schema.registrations).values({ tournamentId: id, playerId });
-    }
+    await fastify.db
+      .insert(schema.clubMemberships)
+      .values({ clubId: club.id, playerId: player.id, cardId: randomUUID() })
+      .onConflictDoNothing();
 
-    publishTournamentUpdate(id);
-    return { status: "registered" };
+    const result = await registerPlayerInTournament(fastify, club.id, id, player.id);
+    if (!result.ok) return reply.code(result.code).send({ error: result.error });
+    return {
+      player: { id: player.id, nickname: player.nickname, avatarUrl: player.avatarUrl },
+      status: result.status,
+    };
   });
 }

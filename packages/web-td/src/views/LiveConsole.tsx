@@ -94,6 +94,8 @@ function CheckinPanel({
 }) {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [walkinName, setWalkinName] = useState("");
+  const [walkinBusy, setWalkinBusy] = useState(false);
 
   async function handleScan(token: string) {
     setScanning(false);
@@ -102,6 +104,21 @@ function CheckinPanel({
       await onAction("/checkin-by-qr", { token });
     } catch (err) {
       setScanError(String((err as Error).message ?? err));
+    }
+  }
+
+  async function handleWalkin() {
+    const nickname = walkinName.trim();
+    if (!nickname) return;
+    setWalkinBusy(true);
+    setScanError(null);
+    try {
+      await onAction("/register-walkin", { nickname });
+      setWalkinName("");
+    } catch (err) {
+      setScanError(String((err as Error).message ?? err));
+    } finally {
+      setWalkinBusy(false);
     }
   }
 
@@ -121,6 +138,26 @@ function CheckinPanel({
           {scanError}
         </div>
       )}
+
+      <div className="row" style={{ gap: 8, marginBottom: 14 }}>
+        <input
+          placeholder="Имя нового игрока"
+          value={walkinName}
+          onChange={(e) => setWalkinName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleWalkin();
+          }}
+          disabled={busy || walkinBusy}
+        />
+        <button
+          className="btn btn-secondary"
+          style={{ width: "auto", padding: "6px 14px" }}
+          disabled={busy || walkinBusy || !walkinName.trim()}
+          onClick={handleWalkin}
+        >
+          + Добавить
+        </button>
+      </div>
 
       <div className="row" style={{ gap: 8, marginBottom: 14 }}>
         <button className="btn btn-secondary" disabled={busy} onClick={() => onAction("/checkin-all")}>

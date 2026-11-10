@@ -1,0 +1,67 @@
+services:
+  # Local-only Postgres replacing Neon — no internet needed once images are
+  # built/pulled. Fixed credentials below are intentional: this stack never
+  # leaves the laptop's closed LAN, so a static local password is an accepted
+  # tradeoff (see docs/OFFLINE.md).
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pokerclub
+      POSTGRES_USER: pokerclub
+      POSTGRES_PASSWORD: pokerclub
+    volumes:
+      - poker_local_pgdata:/var/lib/postgresql/data
+    # Loopback-only (not the LAN binding web-td below uses) — this just lets
+    # the one-time setup scripts on the laptop itself (migrations,
+    # initLocalClub, exportTournament) connect via localhost:5432; other
+    # devices on the venue's Wi-Fi have no reason to reach Postgres directly.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pokerclub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Same api/web-td code and Dockerfiles as docker-compose.production.yml —
+  # only the DB and the set of services running differ. No bot, no
+  # web-player: both need Telegram, which needs internet.
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env.local-offline
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  web-td:
+    build:
+      context: .
+      dockerfile: packages/web-td/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    # Bound to 0.0.0.0 (not 127.0.0.1 like production) so other devices on
+    # the venue's LAN — TD's phone, a floor-staff phone, the board TV — can
+    # reach this laptop, not just itself. Fixed port (not an env var): compose
+    # substitutes ${...} only from a literal .env file or the shell, never
+    # from a file named via env_file:, so a var here would silently not read
+    # from .env.local-offline — see docs/OFFLINE.md.
+    ports:
+      - "0.0.0.0:8080:80"
+
+volumes:
+  poker_local_pgdata:

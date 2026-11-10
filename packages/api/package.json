@@ -7,7 +7,10 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "db:seed": "tsx src/seed.ts"
+    "db:seed": "tsx src/seed.ts",
+    "local:init-club": "tsx src/scripts/initLocalClub.ts",
+    "local:export-tournament": "tsx src/scripts/exportTournament.ts",
+    "local:import-tournament": "tsx src/scripts/importTournament.ts"
   },
   "dependencies": {
     "@fastify/cors": "10.0.1",
