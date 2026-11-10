@@ -1,0 +1,1 @@
+ALTER TABLE "clubs" ADD COLUMN "blind_structure_templates" jsonb DEFAULT '[]'::jsonb NOT NULL;

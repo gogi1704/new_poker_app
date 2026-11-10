@@ -306,6 +306,31 @@ function RunningConsole({
   const level = state.clock?.level;
   const remaining = level ? level.durationMinutes * 60 - elapsed : 0;
 
+  // Clock hotkeys — space = pause/resume, arrows = level ± — so the TD can
+  // run the clock without reaching for the mouse while walking the room.
+  // Ignored while typing in a field (stack correction, announcement, etc.)
+  // so a stray space/arrow there doesn't also move the clock.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (busy) return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        onAction(state.clock?.isPaused ? "/clock/resume" : "/clock/pause");
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        onAction("/clock/level", { direction: "next" });
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        onAction("/clock/level", { direction: "prev" });
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [busy, state.clock?.isPaused, onAction]);
+
   async function handleUndoKnockout() {
     // eliminations is newest-first (see live.ts), so index 0 is the most recent.
     const last = state.eliminations[0];
@@ -361,6 +386,9 @@ function RunningConsole({
           >
             Уровень ⏭
           </button>
+        </div>
+        <div className="small muted" style={{ marginTop: 8 }}>
+          Пробел — пауза/старт, стрелки ← → — уровень
         </div>
       </div>
 

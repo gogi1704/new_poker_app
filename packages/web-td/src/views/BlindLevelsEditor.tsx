@@ -1,6 +1,14 @@
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { BlindLevel } from "../lib/types.js";
 import { STANDARD_LEVELS } from "../lib/standardLevels.js";
+import { apiGet, apiPost, apiDelete } from "../lib/api.js";
+
+interface BlindTemplate {
+  id: string;
+  name: string;
+  levels: BlindLevel[];
+}
 
 export default function BlindLevelsEditor({
   levels,
@@ -9,6 +17,33 @@ export default function BlindLevelsEditor({
   levels: BlindLevel[];
   onChange: (next: BlindLevel[]) => void;
 }) {
+  const [templates, setTemplates] = useState<BlindTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiGet<BlindTemplate[]>("/api/td/blind-templates").then(setTemplates).catch(() => {});
+  }, []);
+
+  async function saveAsTemplate() {
+    const name = newTemplateName.trim();
+    if (!name || levels.length === 0) return;
+    setSaving(true);
+    try {
+      const updated = await apiPost<BlindTemplate[]>("/api/td/blind-templates", { name, levels });
+      setTemplates(updated);
+      setNewTemplateName("");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteTemplate(id: string) {
+    const updated = await apiDelete<BlindTemplate[]>(`/api/td/blind-templates/${id}`);
+    setTemplates(updated);
+    if (selectedTemplateId === id) setSelectedTemplateId("");
+  }
   function updateLevel(index: number, patch: Partial<BlindLevel>) {
     const next = levels.map((l, i) => (i === index ? { ...l, ...patch } : l));
     onChange(next);
@@ -54,6 +89,44 @@ export default function BlindLevelsEditor({
           Заполнить стандартной (12 ур.)
         </button>
       </div>
+
+      {templates.length > 0 && (
+        <div className="row" style={{ gap: 8, marginBottom: 10 }}>
+          <select
+            value={selectedTemplateId}
+            onChange={(e) => setSelectedTemplateId(e.target.value)}
+            style={{ ...templateInputStyle, flex: 1 }}
+          >
+            <option value="">Свой шаблон…</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.levels.length} ур.)
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn btn-secondary"
+            style={{ width: "auto", padding: "6px 10px", fontSize: 12 }}
+            type="button"
+            disabled={!selectedTemplateId}
+            onClick={() => {
+              const t = templates.find((x) => x.id === selectedTemplateId);
+              if (t) onChange(t.levels);
+            }}
+          >
+            Загрузить
+          </button>
+          <button
+            className="icon-btn"
+            type="button"
+            disabled={!selectedTemplateId}
+            onClick={() => selectedTemplateId && deleteTemplate(selectedTemplateId)}
+            title="Удалить шаблон"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {levels.length > 0 && (
         <table className="blind-table">
@@ -136,6 +209,33 @@ export default function BlindLevelsEditor({
           + Перерыв
         </button>
       </div>
+
+      <div className="row" style={{ marginTop: 10, gap: 8 }}>
+        <input
+          value={newTemplateName}
+          onChange={(e) => setNewTemplateName(e.target.value)}
+          placeholder="Название шаблона…"
+          style={{ ...templateInputStyle, flex: 1 }}
+        />
+        <button
+          className="btn btn-secondary"
+          style={{ width: "auto", padding: "6px 10px", fontSize: 12 }}
+          type="button"
+          disabled={saving || !newTemplateName.trim() || levels.length === 0}
+          onClick={saveAsTemplate}
+        >
+          {saving ? "Сохраняем…" : "Сохранить как шаблон"}
+        </button>
+      </div>
     </div>
   );
 }
+
+const templateInputStyle = {
+  padding: "8px 10px",
+  borderRadius: 8,
+  background: "var(--card-2)",
+  border: "1px solid var(--border)",
+  color: "var(--text)",
+  fontSize: 13,
+};

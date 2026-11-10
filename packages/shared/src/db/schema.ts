@@ -158,6 +158,21 @@ export function normalizeBoardSettings(raw: unknown): BoardSettings {
   };
 }
 
+export interface BlindStructureTemplateLevel {
+  levelNumber: number;
+  smallBlind: number;
+  bigBlind: number;
+  ante: number;
+  durationMinutes: number;
+  isBreak: boolean;
+}
+
+export interface BlindStructureTemplate {
+  id: string;
+  name: string;
+  levels: BlindStructureTemplateLevel[];
+}
+
 export const clubs = pgTable("clubs", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -168,6 +183,10 @@ export const clubs = pgTable("clubs", {
   // password instead of Telegram identity. Null = browser password login is
   // disabled. Format "scryptHashHex:saltHex" — see services/admin-password.ts.
   adminPasswordHash: text("admin_password_hash"),
+  // Club-wide, reusable blind structures a TD can save from one tournament's
+  // setup and apply to the next, instead of rebuilding levels from scratch
+  // (or the single hardcoded STANDARD_LEVELS preset) every time.
+  blindStructureTemplates: jsonb("blind_structure_templates").$type<BlindStructureTemplate[]>().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
