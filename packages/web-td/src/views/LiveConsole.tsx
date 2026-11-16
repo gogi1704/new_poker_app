@@ -237,7 +237,7 @@ function SeatingDraft({
       {state.tables.map((table) => (
         <div className="card" key={table.tableNo} style={{ marginTop: 10, marginBottom: 14 }}>
           <div className="row">
-            <strong className="small">Стол {table.tableNo}</strong>
+            <TableTitle table={table} busy={busy} onAction={onAction} />
             {table.seats.length === 0 && (
               <button
                 className="btn btn-secondary"
@@ -257,6 +257,41 @@ function SeatingDraft({
         </div>
       ))}
     </>
+  );
+}
+
+function TableTitle({
+  table,
+  busy,
+  onAction,
+}: {
+  table: LiveTable;
+  busy: boolean;
+  onAction: (path: string, body?: unknown) => Promise<void>;
+}) {
+  const [label, setLabel] = useState(table.label ?? "");
+
+  useEffect(() => setLabel(table.label ?? ""), [table.label]);
+
+  function commit() {
+    const trimmed = label.trim();
+    if (trimmed === (table.label ?? "")) return;
+    onAction(`/tables/${table.tableNo}/label`, { label: trimmed === "" ? null : trimmed });
+  }
+
+  return (
+    <div className="row" style={{ gap: 6, width: "auto" }}>
+      <strong className="small">Стол {table.tableNo}</strong>
+      <input
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
+        placeholder="Своё название"
+        disabled={busy}
+        style={{ width: 140, padding: "2px 6px", fontSize: 11 }}
+      />
+    </div>
   );
 }
 
@@ -453,7 +488,7 @@ function RunningConsole({
       {state.tables.map((table) => (
         <div className="card" key={table.tableNo} style={{ marginTop: 10, marginBottom: 14 }}>
           <div className="row">
-            <strong className="small">Стол {table.tableNo}</strong>
+            <TableTitle table={table} busy={busy} onAction={onAction} />
             {table.seats.length === 0 && (
               <button
                 className="btn btn-secondary"

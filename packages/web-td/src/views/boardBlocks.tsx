@@ -395,7 +395,7 @@ export function renderBoardBlock(block: BoardBlockConfig, state: LiveState, acce
         <div style={blockStyles.tablesGrid}>
           {state.tables.map((t) => (
             <div key={t.tableNo} style={blockStyles.tableCard}>
-              <div style={{ ...blockStyles.tableTitle, color: accent }}>Стол {t.tableNo}</div>
+              <div style={{ ...blockStyles.tableTitle, color: accent }}>{t.label ?? `Стол ${t.tableNo}`}</div>
               {t.seats.map((s) => (
                 <div
                   key={s.seatNo ?? s.playerId}

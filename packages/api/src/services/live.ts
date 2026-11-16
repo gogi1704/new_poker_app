@@ -86,6 +86,7 @@ export async function buildLiveState(db: Database, tournamentId: string) {
 
   const tables = tableRows.map((t) => ({
     tableNo: t.tableNo,
+    label: t.label,
     maxSeats: t.maxSeats,
     seats: registrations
       .filter((r) => r.seatTableId === t.id && r.status === "active")

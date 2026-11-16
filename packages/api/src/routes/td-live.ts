@@ -513,6 +513,29 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
     return respond(fastify, id);
   });
 
+  // ---- custom table name (e.g. "Финальный стол") instead of just "Стол N" ----
+
+  fastify.post("/api/td/tournaments/:id/tables/:tableNo/label", async (request, reply) => {
+    const ctx = await requireStaffAndTournament(fastify, request, reply);
+    if (!ctx) return;
+    const { id, tableNo: tableNoParam } = request.params as { id: string; tableNo: string };
+    const tableNo = Number(tableNoParam);
+    const { label } = z.object({ label: z.string().trim().max(60).nullable() }).parse(request.body);
+
+    const [table] = await fastify.db
+      .select({ id: schema.tables.id })
+      .from(schema.tables)
+      .where(and(eq(schema.tables.tournamentId, id), eq(schema.tables.tableNo, tableNo), eq(schema.tables.isActive, true)));
+    if (!table) return reply.code(404).send({ error: "table not found" });
+
+    await fastify.db
+      .update(schema.tables)
+      .set({ label: label === "" ? null : label })
+      .where(eq(schema.tables.id, table.id));
+
+    return respond(fastify, id);
+  });
+
   // ---- undo last knockout (TD mis-clicked / it wasn't a real elimination) ----
 
   fastify.post("/api/td/tournaments/:id/undo-knockout", async (request, reply) => {

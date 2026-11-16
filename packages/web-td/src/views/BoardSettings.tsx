@@ -102,6 +102,7 @@ function buildPreviewState(club: ClubResponse): LiveState {
     tables: [
       {
         tableNo: 1,
+        label: null,
         maxSeats: 9,
         seats: [
           { seatNo: 1, playerId: "p1", nickname: "Алексей", avatarUrl: null, currentStack: 48500 },

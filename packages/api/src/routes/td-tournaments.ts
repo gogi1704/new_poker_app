@@ -31,7 +31,12 @@ const tournamentSchema = z.object({
   addonAvailableLevel: z.number().int().min(1).nullable().optional(),
   addonMaxCount: z.number().int().min(1).nullable().optional(),
   arriveBonusStack: z.number().int().min(0).default(0),
-  rpsFormulaParams: z.object({ knockoutPoints: z.number().int().min(0) }).default({ knockoutPoints: 50 }),
+  rpsFormulaParams: z
+    .object({
+      knockoutPoints: z.number().int().min(0),
+      placementWeight: z.number().min(0).max(5).default(1),
+    })
+    .default({ knockoutPoints: 50, placementWeight: 1 }),
   blindLevels: z.array(blindLevelSchema).min(1),
 });
 

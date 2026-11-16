@@ -274,11 +274,11 @@ export const tournaments = pgTable("tournaments", {
 
   arriveBonusStack: integer("arrive_bonus_stack").default(0),
 
-  // { base: "linear" | "flat", knockoutPoints: number, ... } — tunable without code changes
+  // { knockoutPoints: number, placementWeight?: number } — tunable without code changes
   rpsFormulaParams: jsonb("rps_formula_params")
-    .$type<{ knockoutPoints: number }>()
+    .$type<{ knockoutPoints: number; placementWeight?: number }>()
     .notNull()
-    .default({ knockoutPoints: 50 }),
+    .default({ knockoutPoints: 50, placementWeight: 1 }),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -318,6 +318,8 @@ export const tables = pgTable("tables", {
   tableNo: integer("table_no").notNull(),
   maxSeats: integer("max_seats").notNull().default(9),
   isActive: boolean("is_active").notNull().default(true),
+  // Optional custom name shown instead of "Стол N" (e.g. "Финальный стол").
+  label: text("label"),
 });
 
 export const registrations = pgTable(

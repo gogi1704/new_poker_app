@@ -33,6 +33,6 @@ export interface TournamentFull extends TournamentListItem {
   addonAvailableLevel: number | null;
   addonMaxCount: number | null;
   arriveBonusStack: number;
-  rpsFormulaParams: { knockoutPoints: number };
+  rpsFormulaParams: { knockoutPoints: number; placementWeight?: number };
   blindLevels: BlindLevel[];
 }

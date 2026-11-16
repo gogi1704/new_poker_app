@@ -1,5 +1,7 @@
 export interface RpsFormulaParams {
   knockoutPoints: number;
+  /** Multiplier on the placement component — lets a TD flatten (<1) or sharpen (>1) the curve. Missing = 1 (old tournaments). */
+  placementWeight?: number;
 }
 
 /**
@@ -15,7 +17,7 @@ export function calculateRps(args: {
 }): number {
   const { place, fieldSize, knockouts, params } = args;
   if (fieldSize <= 0) return 0;
-  const placementScore = Math.round(100 * (1 - (place - 1) / fieldSize));
+  const placementScore = Math.round(100 * (1 - (place - 1) / fieldSize) * (params.placementWeight ?? 1));
   const knockoutScore = knockouts * params.knockoutPoints;
   return Math.max(0, placementScore) + knockoutScore;
 }

@@ -17,6 +17,7 @@ import tdLiveRoutes from "./routes/td-live.js";
 import tdStaffRoutes from "./routes/td-staff.js";
 import tdClubRoutes from "./routes/td-club.js";
 import tdBlindTemplatesRoutes from "./routes/td-blind-templates.js";
+import tdRatingRoutes from "./routes/td-rating.js";
 import tdScanRoutes from "./routes/td-scan.js";
 import realtimeRoutes from "./routes/realtime.js";
 
@@ -36,6 +37,7 @@ await fastify.register(tdLiveRoutes);
 await fastify.register(tdStaffRoutes);
 await fastify.register(tdClubRoutes);
 await fastify.register(tdBlindTemplatesRoutes);
+await fastify.register(tdRatingRoutes);
 await fastify.register(tdScanRoutes);
 await fastify.register(realtimeRoutes);
 

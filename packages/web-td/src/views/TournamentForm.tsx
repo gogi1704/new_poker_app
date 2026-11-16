@@ -25,6 +25,7 @@ interface FormState {
   addonMaxCount: string;
   arriveBonusStack: string;
   knockoutPoints: string;
+  placementWeight: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -45,6 +46,7 @@ const EMPTY_FORM: FormState = {
   addonMaxCount: "",
   arriveBonusStack: "0",
   knockoutPoints: "50",
+  placementWeight: "1",
 };
 
 function toFormState(t: TournamentFull): FormState {
@@ -66,6 +68,7 @@ function toFormState(t: TournamentFull): FormState {
     addonMaxCount: t.addonMaxCount?.toString() ?? "",
     arriveBonusStack: String(t.arriveBonusStack),
     knockoutPoints: String(t.rpsFormulaParams.knockoutPoints),
+    placementWeight: String(t.rpsFormulaParams.placementWeight ?? 1),
   };
 }
 
@@ -126,7 +129,10 @@ export default function TournamentForm({
       addonAvailableLevel: numOrNull(form.addonAvailableLevel),
       addonMaxCount: numOrNull(form.addonMaxCount),
       arriveBonusStack: Number(form.arriveBonusStack || 0),
-      rpsFormulaParams: { knockoutPoints: Number(form.knockoutPoints || 0) },
+      rpsFormulaParams: {
+        knockoutPoints: Number(form.knockoutPoints || 0),
+        placementWeight: Number(form.placementWeight || 1),
+      },
       blindLevels: levels,
     };
   }
@@ -359,15 +365,29 @@ export default function TournamentForm({
           </div>
         </div>
 
-        <div className="field">
-          <label>RPS за нокаут</label>
-          <input
-            type="number"
-            min="0"
-            style={{ maxWidth: 120 }}
-            value={form.knockoutPoints}
-            onChange={(e) => set("knockoutPoints", e.target.value)}
-          />
+        <div className="row" style={{ gap: 14 }}>
+          <div className="field">
+            <label>RPS за нокаут</label>
+            <input
+              type="number"
+              min="0"
+              style={{ maxWidth: 120 }}
+              value={form.knockoutPoints}
+              onChange={(e) => set("knockoutPoints", e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label>Вес места (1 — как сейчас)</label>
+            <input
+              type="number"
+              min="0"
+              max="5"
+              step="0.1"
+              style={{ maxWidth: 120 }}
+              value={form.placementWeight}
+              onChange={(e) => set("placementWeight", e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="card" style={{ marginBottom: 14 }}>

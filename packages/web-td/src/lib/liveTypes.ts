@@ -19,6 +19,7 @@ export interface LiveSeat {
 
 export interface LiveTable {
   tableNo: number;
+  label: string | null;
   maxSeats: number;
   seats: LiveSeat[];
 }

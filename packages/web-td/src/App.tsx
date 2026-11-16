@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Settings, Users, Tv2, Building2, QrCode } from "lucide-react";
+import { Settings, Users, Tv2, Building2, QrCode, Award } from "lucide-react";
 import { authenticate, authenticateWithPassword, getToken, setToken, apiGet } from "./lib/api.js";
 import PasswordLogin from "./components/PasswordLogin.js";
 import TournamentList from "./views/TournamentList.js";
@@ -8,6 +8,7 @@ import LiveConsole from "./views/LiveConsole.js";
 import PublishResults from "./views/PublishResults.js";
 import StaffSettings from "./views/StaffSettings.js";
 import BoardSettings from "./views/BoardSettings.js";
+import RatingSettings from "./views/RatingSettings.js";
 import ClubSettings from "./views/ClubSettings.js";
 import ScanCheckin from "./views/ScanCheckin.js";
 
@@ -26,6 +27,7 @@ type View =
   | { name: "staff" }
   | { name: "board" }
   | { name: "club" }
+  | { name: "rating" }
   | { name: "scan" };
 
 export default function App() {
@@ -134,6 +136,14 @@ export default function App() {
               >
                 <Tv2 size={16} />
               </button>
+              <button
+                className="btn btn-secondary"
+                style={{ width: "auto", padding: "6px 10px" }}
+                onClick={() => setView({ name: "rating" })}
+                title="Настройки рейтинга"
+              >
+                <Award size={16} />
+              </button>
             </>
           )}
         </div>
@@ -170,6 +180,7 @@ export default function App() {
       {view.name === "staff" && <StaffSettings onClose={closeToList} />}
       {view.name === "board" && <BoardSettings onClose={closeToList} />}
       {view.name === "club" && <ClubSettings onClose={closeToList} />}
+      {view.name === "rating" && <RatingSettings onClose={closeToList} />}
       {view.name === "scan" && <ScanCheckin onClose={closeToList} />}
     </>
   );
