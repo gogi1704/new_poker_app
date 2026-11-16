@@ -1,11 +1,12 @@
-// Offline → cloud sync, step 1 of 2 (see docs/OFFLINE.md). Run against the
-// local Postgres (docker-compose.local.yml) after a tournament finishes at
-// the venue, to dump everything importTournament.ts needs to recreate it in
-// the cloud database. Not an API endpoint — this is a manual, infrequent ops
-// step, run directly with tsx.
+// Offline → cloud sync (see docs/OFFLINE.md). Run against the local Postgres
+// (docker-compose.local.yml) after a tournament finishes at the venue, to
+// dump everything needed to recreate it in the cloud database. A CLI
+// fallback for when sending the file to the bot (Club Settings → the
+// "Выгрузить" button on a finished tournament → send that file to the bot
+// in Telegram) isn't convenient — same underlying logic either way.
 import { writeFileSync } from "node:fs";
-import { eq, inArray } from "drizzle-orm";
-import { createDb, schema } from "@poker/shared";
+import { eq } from "drizzle-orm";
+import { createDb, schema, buildTournamentExport } from "@poker/shared";
 
 const connectionString = process.env.LOCAL_DATABASE_URL ?? "postgresql://pokerclub:pokerclub@localhost:5432/pokerclub";
 const db = createDb(connectionString);
@@ -25,66 +26,12 @@ async function main() {
     ? await db.select().from(schema.tournaments).where(eq(schema.tournaments.id, identifier))
     : await db.select().from(schema.tournaments).where(eq(schema.tournaments.name, identifier));
   if (!tournament) throw new Error(`Tournament "${identifier}" not found`);
-  const tournamentId = tournament.id;
 
-  const blindLevels = await db.select().from(schema.blindLevels).where(eq(schema.blindLevels.tournamentId, tournamentId));
-  const registrations = await db
-    .select()
-    .from(schema.registrations)
-    .where(eq(schema.registrations.tournamentId, tournamentId));
-  const results = await db
-    .select()
-    .from(schema.tournamentResults)
-    .where(eq(schema.tournamentResults.tournamentId, tournamentId));
-  const knockouts = await db.select().from(schema.knockouts).where(eq(schema.knockouts.tournamentId, tournamentId));
-  const rebuys = await db
-    .select()
-    .from(schema.rebuyAddonTransactions)
-    .where(eq(schema.rebuyAddonTransactions.tournamentId, tournamentId));
-  const rpsLedger = await db.select().from(schema.rpsLedger).where(eq(schema.rpsLedger.tournamentId, tournamentId));
+  const data = await buildTournamentExport(db, tournament.id);
+  writeFileSync(outFile, JSON.stringify(data, null, 2));
 
-  // Players are kept by their local id here — importTournament.ts remaps
-  // every reference below to a fresh (or matched-by-telegramId) cloud id.
-  const playerIds = new Set<string>();
-  for (const r of registrations) playerIds.add(r.playerId);
-  for (const r of results) playerIds.add(r.playerId);
-  for (const k of knockouts) {
-    playerIds.add(k.eliminatedPlayerId);
-    if (k.eliminatedByPlayerId) playerIds.add(k.eliminatedByPlayerId);
-  }
-  for (const r of rebuys) playerIds.add(r.playerId);
-  for (const l of rpsLedger) playerIds.add(l.playerId);
-
-  const players = playerIds.size
-    ? await db.select().from(schema.players).where(inArray(schema.players.id, [...playerIds]))
-    : [];
-
-  writeFileSync(
-    outFile,
-    JSON.stringify(
-      {
-        exportedAt: new Date().toISOString(),
-        tournament,
-        blindLevels,
-        players: players.map((p) => ({
-          localId: p.id,
-          telegramId: p.telegramId,
-          nickname: p.nickname,
-          avatarUrl: p.avatarUrl,
-        })),
-        registrations,
-        results,
-        knockouts,
-        rebuys,
-        rpsLedger,
-      },
-      null,
-      2,
-    ),
-  );
-
-  console.log(`Exported tournament "${tournament.name}" -> ${outFile}`);
-  console.log(`  ${players.length} players, ${results.length} results, ${knockouts.length} knockouts`);
+  console.log(`Exported tournament "${data.tournament.name}" -> ${outFile}`);
+  console.log(`  ${data.players.length} players, ${data.results.length} results, ${data.knockouts.length} knockouts`);
 }
 
 main()

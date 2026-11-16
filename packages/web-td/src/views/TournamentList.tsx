@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Square, Copy, Archive, ArchiveRestore, Trash2 } from "lucide-react";
-import { apiGet, apiPost, apiDelete } from "../lib/api.js";
+import { Square, Copy, Archive, ArchiveRestore, Trash2, Download } from "lucide-react";
+import { apiGet, apiPost, apiDelete, downloadTournamentExport } from "../lib/api.js";
 import { confirmDialog } from "../lib/telegram.js";
 import type { TournamentListItem } from "../lib/types.js";
 import { formatDateDisplay, formatLabel, statusLabel } from "../lib/format.js";
@@ -11,10 +11,12 @@ export default function TournamentList({
   onCreate,
   onEdit,
   onOpenLive,
+  isOwner,
 }: {
   onCreate: () => void;
   onEdit: (id: string) => void;
   onOpenLive: (id: string) => void;
+  isOwner: boolean;
 }) {
   const [tournaments, setTournaments] = useState<TournamentListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,18 @@ export default function TournamentList({
     try {
       const { id } = await apiPost<{ id: string }>(`/api/td/tournaments/${t.id}/duplicate`);
       onEdit(id);
+    } catch (err) {
+      setError(String((err as Error).message ?? err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleExport(t: TournamentListItem) {
+    setBusyId(t.id);
+    setError(null);
+    try {
+      await downloadTournamentExport(t.id, t.name);
     } catch (err) {
       setError(String((err as Error).message ?? err));
     } finally {
@@ -133,6 +147,17 @@ export default function TournamentList({
             >
               <Copy size={13} />
             </button>
+            {t.status === "finished" && isOwner && (
+              <button
+                className="btn btn-secondary"
+                style={{ width: "auto", padding: "6px 10px", fontSize: 12 }}
+                disabled={busyId === t.id}
+                onClick={() => handleExport(t)}
+                title="Выгрузить (для переноса в облако)"
+              >
+                <Download size={13} />
+              </button>
+            )}
             <button
               className="btn btn-secondary"
               style={{ width: "auto", padding: "6px 10px", fontSize: 12 }}

@@ -42,6 +42,27 @@ export async function authenticate(initData: string) {
   return res.json() as Promise<{ token: string; player: { id: string; nickname: string } }>;
 }
 
+// A plain <a href> wouldn't carry the Bearer auth header this app uses, so
+// the export route is fetched manually and handed to the browser as a
+// Blob — the standard way to trigger an authenticated download from an SPA.
+export async function downloadTournamentExport(tournamentId: string, name: string) {
+  const token = getToken();
+  const res = await fetch(`${API_BASE_URL}/api/td/tournaments/${tournamentId}/export`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? `export failed: ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name.replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]+/g, "_")}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function authenticateWithPassword(password: string) {
   const res = await fetch(`${API_BASE_URL}/api/auth/admin-password`, {
     method: "POST",

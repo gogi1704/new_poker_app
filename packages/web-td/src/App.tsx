@@ -145,6 +145,7 @@ export default function App() {
           onCreate={() => setView({ name: "create" })}
           onEdit={(id) => setView({ name: "edit", id })}
           onOpenLive={(id) => setView({ name: "live", id })}
+          isOwner={auth.role === "owner"}
         />
       )}
       {view.name === "create" && <TournamentForm onDone={closeToList} onCancel={closeToList} />}

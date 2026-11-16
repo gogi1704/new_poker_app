@@ -7,6 +7,7 @@ import { Bot, webhookCallback } from "grammy";
 import { createDb } from "@poker/shared";
 import { registerStartCommand } from "./commands/start.js";
 import { registerTdCommand } from "./commands/td.js";
+import { registerImportDocumentHandler } from "./commands/importDocument.js";
 import { startReminderJob } from "./jobs/reminders.js";
 
 const botToken = process.env.BOT_TOKEN;
@@ -28,6 +29,7 @@ if (webTdUrl) {
 } else {
   console.warn("WEB_TD_PUBLIC_URL not set — /td command disabled");
 }
+registerImportDocumentHandler(bot, db);
 
 bot.catch((err) => console.error("Bot error:", err));
 

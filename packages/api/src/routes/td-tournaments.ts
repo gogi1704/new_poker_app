@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { schema } from "@poker/shared";
+import { schema, buildTournamentExport } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
-import { requireStaff } from "../services/staff.js";
+import { requireStaff, requireOwner } from "../services/staff.js";
 
 const blindLevelSchema = z.object({
   levelNumber: z.number().int().min(1),
@@ -83,6 +83,30 @@ export default async function tdTournamentsRoutes(fastify: FastifyInstance) {
       .orderBy(asc(schema.blindLevels.levelNumber));
 
     return { ...tournament, blindLevels };
+  });
+
+  // Owner-only: the "Выгрузить" button on a finished tournament, for syncing
+  // an offline-mode venue's results back into the cloud DB (see
+  // docs/OFFLINE.md) — the TD downloads this file and sends it to the bot.
+  fastify.get("/api/td/tournaments/:id/export", async (request, reply) => {
+    const club = await getDefaultClub(fastify.db);
+    const owner = await requireOwner(request, reply, fastify.db, club.id);
+    if (!owner) return;
+
+    const { id } = request.params as { id: string };
+    const [tournament] = await fastify.db
+      .select({ name: schema.tournaments.name, clubId: schema.tournaments.clubId })
+      .from(schema.tournaments)
+      .where(eq(schema.tournaments.id, id));
+    if (!tournament || tournament.clubId !== club.id) return reply.code(404).send({ error: "not found" });
+
+    const data = await buildTournamentExport(fastify.db, id);
+    const slug = tournament.name.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "tournament";
+    const date = new Date().toISOString().slice(0, 10);
+
+    reply.header("Content-Disposition", `attachment; filename="${slug}-${date}.json"`);
+    reply.type("application/json");
+    return data;
   });
 
   fastify.post("/api/td/tournaments", async (request, reply) => {
