@@ -8,12 +8,36 @@ export function setToken(token: string) {
   localStorage.setItem("session_token", token);
 }
 
+export function clearToken() {
+  localStorage.removeItem("session_token");
+}
+
+// The stored-session fast path (App.tsx, standalone/installed site) never
+// re-validates the token up front, so an expired one only surfaces here, on
+// whichever request first hits the API. Any caller's 401 should kick the
+// whole app back to the "log in again via the bot" screen rather than each
+// tab silently rendering an empty state — App.tsx registers that handler.
+let onSessionExpired: (() => void) | null = null;
+export function setSessionExpiredHandler(handler: (() => void) | null) {
+  onSessionExpired = handler;
+}
+
+function checkSessionExpired(res: Response) {
+  if (res.status === 401) {
+    clearToken();
+    onSessionExpired?.();
+  }
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+  if (!res.ok) {
+    checkSessionExpired(res);
+    throw new Error(`${path} failed: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -30,6 +54,7 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
+    checkSessionExpired(res);
     const data = await res.json().catch(() => null);
     throw new Error(data?.error ?? `${path} failed: ${res.status}`);
   }
@@ -47,6 +72,7 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
+    checkSessionExpired(res);
     const data = await res.json().catch(() => null);
     throw new Error(data?.error ?? `${path} failed: ${res.status}`);
   }

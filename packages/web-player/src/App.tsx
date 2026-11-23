@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { authenticate, getToken, magicLinkLogin, setToken } from "./lib/api.js";
+import { authenticate, getToken, magicLinkLogin, setSessionExpiredHandler, setToken } from "./lib/api.js";
 import Header, { type ClubInfo } from "./components/Header.js";
 import LoadingScreen from "./components/LoadingScreen.js";
 import BottomNav, { type Tab } from "./components/BottomNav.js";
@@ -22,6 +22,20 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [openTournamentId, setOpenTournamentId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    // Only the stored-session fast path below skips re-validating the token
+    // up front, so an expired one otherwise only surfaces as a 401 on
+    // whichever tab happens to fetch first — this sends the whole app back
+    // to the login screen instead of that tab silently rendering empty.
+    setSessionExpiredHandler(() =>
+      setAuth({
+        status: "error",
+        message: "Сессия истекла. Открой приложение через кнопку бота в Telegram ещё раз.",
+      }),
+    );
+    return () => setSessionExpiredHandler(null);
+  }, []);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
