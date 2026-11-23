@@ -5,10 +5,10 @@ import { suggestPayouts } from "./standings.js";
 import { getAnnouncement } from "./announcements.js";
 
 export async function buildLiveState(db: Database, tournamentId: string) {
-  // These queries are independent of each other, and each round-trip to a
-  // remote Postgres (Neon) costs real latency — running them sequentially made
-  // the first SSE push take 4-5s. Firing them concurrently cuts that to the
-  // slowest single query instead of the sum of all of them.
+  // These queries are independent of each other, and each round-trip to
+  // Postgres costs real latency — running them sequentially made the first
+  // SSE push take 4-5s. Firing them concurrently cuts that to the slowest
+  // single query instead of the sum of all of them.
   const [tournament, blindLevels, clockRow, registrations, tableRows, knockoutRows, rebuyTotalRow, winnerRow, clubRow] =
     await Promise.all([
       db

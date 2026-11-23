@@ -1,0 +1,31 @@
+services:
+  # Local dev Postgres, replacing Neon — fixed simple credentials are fine
+  # here since this never leaves the developer's own machine (same tradeoff
+  # docker-compose.local.yml already makes for the offline-mode stack).
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pokerclub
+      POSTGRES_USER: pokerclub
+      POSTGRES_PASSWORD: pokerclub
+    volumes:
+      - poker_dev_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pokerclub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:4
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "127.0.0.1:8081:8080"
+
+volumes:
+  poker_dev_pgdata:

@@ -1,11 +1,15 @@
-// Offline → cloud sync (see docs/OFFLINE.md). Run against the shared cloud
-// (Neon) database — loads .env.local exactly like seed.ts, since dev and
-// prod point at the same database. A CLI fallback for when sending the
-// export file to the bot in Telegram isn't convenient — same underlying
-// import logic either way (see @poker/shared's importTournamentExport).
+// Offline → cloud sync (see docs/OFFLINE.md). A CLI fallback for when
+// sending the export file to the bot in Telegram isn't convenient — same
+// underlying import logic either way (see @poker/shared's
+// importTournamentExport). Production's Postgres is self-hosted, reachable
+// only from the other containers on its docker-compose network (see
+// docker-compose.production.yml) — unlike the old shared-Neon-DB setup,
+// this only reaches the real production data run INSIDE that network, e.g.:
+//   docker-compose -p poker-club -f docker-compose.production.yml exec api \
+//     pnpm exec tsx src/scripts/importTournament.ts <file>
 import { config } from "dotenv";
 import { resolve } from "node:path";
-config({ path: resolve(process.cwd(), "../../.env.local") });
+config({ path: resolve(process.cwd(), "../../.env.production") });
 
 import { readFileSync } from "node:fs";
 import { createDb, schema, importTournamentExport } from "@poker/shared";

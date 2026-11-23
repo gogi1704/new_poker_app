@@ -1,4 +1,31 @@
 services:
+  # Replaces Neon — self-hosted so the app no longer depends on a third-party
+  # DB quota. Loopback-only port lets an admin on the server itself run
+  # migrations/backups via `psql`/`pg_dump`; nothing beyond this host can
+  # reach it. Credentials live only in .env.production (gitignored), never
+  # in this file.
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    volumes:
+      - poker_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   api:
     build:
       context: .
@@ -7,6 +34,9 @@ services:
     init: true
     env_file:
       - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
     expose:
       - "3001"
     healthcheck:
@@ -31,6 +61,9 @@ services:
     init: true
     env_file:
       - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${BOT_WEBHOOK_HOST_PORT:-18092}:3002"
     security_opt:
@@ -74,3 +107,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  poker_pgdata:
