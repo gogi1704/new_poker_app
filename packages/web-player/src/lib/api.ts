@@ -66,3 +66,22 @@ export async function authenticate(initData: string) {
     club: { name: string; logoUrl: string | null } | null;
   }>;
 }
+
+// Standalone-site login via a bot-issued link (?login=<token> — see
+// App.tsx). Same response shape as authenticate() above.
+export async function magicLinkLogin(token: string) {
+  const res = await fetch(`${API_BASE_URL}/api/auth/magic-link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? `auth failed: ${res.status}`);
+  }
+  return res.json() as Promise<{
+    token: string;
+    player: { id: string; nickname: string };
+    club: { name: string; logoUrl: string | null } | null;
+  }>;
+}

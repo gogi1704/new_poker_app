@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Image as ImageIcon } from "lucide-react";
-import { apiGet, apiPut } from "../lib/api.js";
+import { X, Image as ImageIcon, Send } from "lucide-react";
+import { apiGet, apiPost, apiPut } from "../lib/api.js";
 
 interface ClubResponse {
   id: string;
@@ -44,6 +44,24 @@ export default function ClubSettings({ onClose }: { onClose: () => void }) {
   const [newPassword, setNewPassword] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+
+  const [newsText, setNewsText] = useState("");
+  const [newsSending, setNewsSending] = useState(false);
+  const [newsMessage, setNewsMessage] = useState<string | null>(null);
+
+  async function sendNews() {
+    setNewsSending(true);
+    setNewsMessage(null);
+    try {
+      const result = await apiPost<{ sent: number; failed: number }>("/api/td/broadcast", { text: newsText });
+      setNewsMessage(`Отправлено: ${result.sent}${result.failed ? `, не доставлено: ${result.failed}` : ""}.`);
+      setNewsText("");
+    } catch (err) {
+      setNewsMessage(`Ошибка: ${String((err as Error).message ?? err)}`);
+    } finally {
+      setNewsSending(false);
+    }
+  }
 
   useEffect(() => {
     apiGet<ClubResponse>("/api/td/club").then(setClub).catch((err) => setError(String(err.message ?? err)));
@@ -196,6 +214,44 @@ export default function ClubSettings({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <div style={{ marginBottom: 10 }}>
+          <strong>Новости клуба</strong>
+          <div className="small muted" style={{ marginTop: 4 }}>
+            Разослать сообщение в Telegram всем участникам клуба (кто не отключил уведомления от бота).
+          </div>
+        </div>
+
+        <div className="field" style={{ marginBottom: 10 }}>
+          <textarea
+            value={newsText}
+            onChange={(e) => setNewsText(e.target.value)}
+            placeholder="Текст новости…"
+            rows={4}
+            style={{
+              width: "100%",
+              padding: 10,
+              borderRadius: 10,
+              background: "var(--card-2)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+              resize: "vertical",
+            }}
+          />
+        </div>
+
+        {newsMessage && (
+          <div className="small" style={{ color: "var(--muted)", marginBottom: 10 }}>
+            {newsMessage}
+          </div>
+        )}
+
+        <button className="btn btn-primary" style={{ width: "auto" }} disabled={newsSending || !newsText.trim()} onClick={sendNews}>
+          <Send size={13} style={{ marginRight: 4, verticalAlign: -2 }} />
+          {newsSending ? "Отправляем…" : "Разослать"}
+        </button>
       </div>
     </div>
   );

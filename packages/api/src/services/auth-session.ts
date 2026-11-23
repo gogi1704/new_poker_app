@@ -55,8 +55,12 @@ export async function issueTelegramSession(fastify: FastifyInstance, identity: T
       .onConflictDoNothing();
   }
 
+  // 30d (not 24h): the Mini App path re-authenticates silently via fresh
+  // initData on every open regardless, so this only matters for the
+  // standalone-site login path (see routes/auth.ts magic-link), where it's
+  // what makes a bookmarked visit next week not need a fresh bot link.
   const token = jwt.sign({ playerId: player.id, telegramId }, jwtSecret, {
-    expiresIn: "24h",
+    expiresIn: "30d",
   });
 
   return {

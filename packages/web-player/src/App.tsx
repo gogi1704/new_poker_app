@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { authenticate, setToken } from "./lib/api.js";
+import { authenticate, getToken, magicLinkLogin, setToken } from "./lib/api.js";
 import Header, { type ClubInfo } from "./components/Header.js";
 import LoadingScreen from "./components/LoadingScreen.js";
 import BottomNav, { type Tab } from "./components/BottomNav.js";
@@ -29,20 +29,48 @@ export default function App() {
     tg?.expand();
 
     const initData = tg?.initData;
-    if (!initData) {
-      setAuth({ status: "error", message: "Открой это приложение через кнопку бота в Telegram." });
+    if (initData) {
+      authenticate(initData)
+        .then((data) => {
+          setToken(data.token);
+          setClub(data.club);
+          setAuth({ status: "ready" });
+          const deepLinkId = new URLSearchParams(window.location.search).get("tournament");
+          if (deepLinkId) setOpenTournamentId(deepLinkId);
+        })
+        .catch((err) => setAuth({ status: "error", message: String(err) }));
       return;
     }
 
-    authenticate(initData)
-      .then((data) => {
-        setToken(data.token);
-        setClub(data.club);
-        setAuth({ status: "ready" });
-        const deepLinkId = new URLSearchParams(window.location.search).get("tournament");
-        if (deepLinkId) setOpenTournamentId(deepLinkId);
-      })
-      .catch((err) => setAuth({ status: "error", message: String(err) }));
+    // Standalone site, opened outside Telegram's WebView (see "🌐 Открыть
+    // сайт" button in packages/bot/src/commands/start.ts): a fresh visit
+    // from that link carries a one-time ?login= ticket; a later revisit
+    // reuses the still-valid stored session instead (see lib/api.ts
+    // getToken/setToken — same persistence pattern web-td uses for its own
+    // browser login).
+    const loginToken = new URLSearchParams(window.location.search).get("login");
+    if (loginToken) {
+      magicLinkLogin(loginToken)
+        .then((data) => {
+          setToken(data.token);
+          setClub(data.club);
+          setAuth({ status: "ready" });
+          // Never leave the one-time ticket sitting in the address bar.
+          window.history.replaceState({}, "", window.location.pathname);
+        })
+        .catch((err) => setAuth({ status: "error", message: String((err as Error).message ?? err) }));
+      return;
+    }
+
+    if (getToken()) {
+      setAuth({ status: "ready" });
+      return;
+    }
+
+    setAuth({
+      status: "error",
+      message: "Открой это приложение через кнопку бота в Telegram (или ссылку «Открыть сайт» из /start).",
+    });
   }, []);
 
   if (auth.status === "loading") return <LoadingScreen text="ВХОДИМ…" />;

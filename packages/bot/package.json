@@ -14,9 +14,11 @@
     "dotenv": "16.4.7",
     "drizzle-orm": "0.38.3",
     "grammy": "1.33.0",
+    "jsonwebtoken": "9.0.2",
     "node-cron": "3.0.3"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "9.0.7",
     "@types/node": "22.10.5",
     "@types/node-cron": "3.0.11",
     "tsx": "4.19.2",

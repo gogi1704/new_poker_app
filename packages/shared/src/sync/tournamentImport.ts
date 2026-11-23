@@ -32,19 +32,42 @@ function assertExportShape(raw: unknown): asserts raw is TournamentExportData {
   }
 }
 
+export interface TournamentImportOptions {
+  /**
+   * "archive" (default): one-time, post-event sync — skips (does not
+   * duplicate) a tournament already present, matched by name + scheduledAt.
+   * Used by the offline → cloud CLI script and the bot's document-upload
+   * handler.
+   *
+   * "sync": pre-event, cloud → local prep — meant to be re-run repeatedly as
+   * more players register before the TD leaves for the venue. If the
+   * tournament already exists locally and hasn't started yet (status
+   * "scheduled"/"registering"), its settings/blind levels/registrations are
+   * replaced with the fresh export instead of being skipped. Refuses to
+   * touch a tournament that's already running/paused/finished/cancelled
+   * locally, so a stray re-sync can never clobber real played results.
+   */
+  mode?: "archive" | "sync";
+}
+
 /**
- * Recreates a tournament exported by buildTournamentExport() in this (cloud)
+ * Recreates a tournament exported by buildTournamentExport() in this
  * database: matches each referenced player by telegramId, inserting a new
  * player/membership for any that don't exist yet (every walk-in, plus any
  * real player not yet seen in this DB), then re-inserts the tournament and
  * everything under it with fresh ids, copying `rpsAwarded`/ledger deltas
- * as-is rather than recomputing them. Idempotent: skips (does not duplicate)
- * a tournament already imported, matched by name + scheduledAt. Shared by
- * the offline → cloud CLI script and the bot's document-upload handler.
+ * as-is rather than recomputing them. See TournamentImportOptions for the
+ * two idempotency modes.
  */
-export async function importTournamentExport(db: Database, clubId: string, raw: unknown): Promise<TournamentImportResult> {
+export async function importTournamentExport(
+  db: Database,
+  clubId: string,
+  raw: unknown,
+  options: TournamentImportOptions = {},
+): Promise<TournamentImportResult> {
   assertExportShape(raw);
   const { tournament, blindLevels, players, registrations, results, knockouts, rebuys, rpsLedger } = raw;
+  const mode = options.mode ?? "archive";
 
   const scheduledAt = new Date(tournament.scheduledAt);
   const [existingTournament] = await db
@@ -57,7 +80,17 @@ export async function importTournamentExport(db: Database, clubId: string, raw: 
         eq(schema.tournaments.scheduledAt, scheduledAt),
       ),
     );
-  if (existingTournament) {
+
+  if (existingTournament && mode === "archive") {
+    return {
+      imported: false,
+      tournamentId: existingTournament.id,
+      name: tournament.name,
+      counts: { players: 0, results: 0, knockouts: 0, rpsLedger: 0 },
+    };
+  }
+
+  if (existingTournament && mode === "sync" && !["scheduled", "registering"].includes(existingTournament.status)) {
     return {
       imported: false,
       tournamentId: existingTournament.id,
@@ -94,30 +127,40 @@ export async function importTournamentExport(db: Database, clubId: string, raw: 
     }
   }
 
-  const [newTournament] = await db
-    .insert(schema.tournaments)
-    .values({
-      clubId,
-      name: tournament.name,
-      format: tournament.format,
-      status: tournament.status,
-      archived: tournament.archived,
-      scheduledAt,
-      buyIn: tournament.buyIn,
-      startingStack: tournament.startingStack,
-      maxSeats: tournament.maxSeats,
-      maxSeatsPerTable: tournament.maxSeatsPerTable,
-      lateRegUntilLevel: tournament.lateRegUntilLevel,
-      reentryAllowedUntilLevel: tournament.reentryAllowedUntilLevel,
-      reentryPrice: tournament.reentryPrice,
-      addonPrice: tournament.addonPrice,
-      addonStack: tournament.addonStack,
-      addonAvailableLevel: tournament.addonAvailableLevel,
-      addonMaxCount: tournament.addonMaxCount,
-      arriveBonusStack: tournament.arriveBonusStack,
-      rpsFormulaParams: tournament.rpsFormulaParams,
-    })
-    .returning();
+  const tournamentValues = {
+    name: tournament.name,
+    format: tournament.format,
+    status: tournament.status,
+    archived: tournament.archived,
+    scheduledAt,
+    buyIn: tournament.buyIn,
+    startingStack: tournament.startingStack,
+    maxSeats: tournament.maxSeats,
+    maxSeatsPerTable: tournament.maxSeatsPerTable,
+    lateRegUntilLevel: tournament.lateRegUntilLevel,
+    reentryAllowedUntilLevel: tournament.reentryAllowedUntilLevel,
+    reentryPrice: tournament.reentryPrice,
+    addonPrice: tournament.addonPrice,
+    addonStack: tournament.addonStack,
+    addonAvailableLevel: tournament.addonAvailableLevel,
+    addonMaxCount: tournament.addonMaxCount,
+    arriveBonusStack: tournament.arriveBonusStack,
+    rpsFormulaParams: tournament.rpsFormulaParams,
+  };
+
+  let newTournament: typeof schema.tournaments.$inferSelect;
+  if (existingTournament) {
+    // mode === "sync" and already validated above as not yet started.
+    [newTournament] = await db
+      .update(schema.tournaments)
+      .set(tournamentValues)
+      .where(eq(schema.tournaments.id, existingTournament.id))
+      .returning();
+    await db.delete(schema.blindLevels).where(eq(schema.blindLevels.tournamentId, newTournament.id));
+    await db.delete(schema.registrations).where(eq(schema.registrations.tournamentId, newTournament.id));
+  } else {
+    [newTournament] = await db.insert(schema.tournaments).values({ clubId, ...tournamentValues }).returning();
+  }
 
   if (blindLevels.length) {
     await db.insert(schema.blindLevels).values(

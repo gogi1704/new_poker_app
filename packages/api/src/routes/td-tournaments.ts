@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { schema, buildTournamentExport } from "@poker/shared";
+import { schema, buildTournamentExport, importTournamentExport } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { requireStaff, requireOwner } from "../services/staff.js";
 
@@ -90,9 +90,12 @@ export default async function tdTournamentsRoutes(fastify: FastifyInstance) {
     return { ...tournament, blindLevels };
   });
 
-  // Owner-only: the "Выгрузить" button on a finished tournament, for syncing
-  // an offline-mode venue's results back into the cloud DB (see
-  // docs/OFFLINE.md) — the TD downloads this file and sends it to the bot.
+  // Owner-only: the "Выгрузить" button. Two uses — on a finished tournament,
+  // for syncing an offline-mode venue's results back into the cloud DB (the
+  // TD sends the file to the bot); on a scheduled/registering tournament,
+  // for the reverse pre-event sync (cloud settings + current registrations
+  // down into the local offline stack via the import route below). See
+  // docs/OFFLINE.md.
   fastify.get("/api/td/tournaments/:id/export", async (request, reply) => {
     const club = await getDefaultClub(fastify.db);
     const owner = await requireOwner(request, reply, fastify.db, club.id);
@@ -112,6 +115,22 @@ export default async function tdTournamentsRoutes(fastify: FastifyInstance) {
     reply.header("Content-Disposition", `attachment; filename="${slug}-${date}.json"`);
     reply.type("application/json");
     return data;
+  });
+
+  // Owner-only: the "Загрузить из файла" button — the other end of the
+  // pre-event sync above. Re-run-safe: updates (not duplicates) a local
+  // tournament that hasn't started yet, matched by name + scheduledAt.
+  fastify.post("/api/td/tournaments/import", async (request, reply) => {
+    const club = await getDefaultClub(fastify.db);
+    const owner = await requireOwner(request, reply, fastify.db, club.id);
+    if (!owner) return;
+
+    try {
+      const result = await importTournamentExport(fastify.db, club.id, request.body, { mode: "sync" });
+      return result;
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
   });
 
   fastify.post("/api/td/tournaments", async (request, reply) => {

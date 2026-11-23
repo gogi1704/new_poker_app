@@ -8,6 +8,13 @@ import { getDefaultClub } from "../services/club.js";
 
 const bodySchema = z.object({ initData: z.string().min(1) });
 const passwordSchema = z.object({ password: z.string().min(1) });
+const magicLinkSchema = z.object({ token: z.string().min(1) });
+
+interface WebLoginTicketPayload {
+  tgId: string;
+  nickname: string;
+  purpose: "web-login";
+}
 
 export default async function authRoutes(fastify: FastifyInstance) {
   fastify.post("/api/auth/telegram", async (request, reply) => {
@@ -34,6 +41,36 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const avatarUrl = validated.user.photo_url ?? null;
 
     return issueTelegramSession(fastify, { telegramId, nickname, avatarUrl });
+  });
+
+  // Standalone-site login (outside Telegram's WebView): the bot builds and
+  // sends a short-lived ticket (packages/bot/src/lib/webLogin.ts) via a
+  // plain URL button — this exchanges it for a normal session, exactly like
+  // /api/auth/telegram above does once it knows "this is telegramId X".
+  // Deliberately verifies the ticket itself rather than relying on
+  // plugins/auth.ts's generic Bearer-token extraction, since a ticket is
+  // intentionally NOT shaped like a session/admin token (see webLogin.ts).
+  fastify.post("/api/auth/magic-link", async (request, reply) => {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) return reply.code(500).send({ error: "server misconfigured" });
+
+    const { token } = magicLinkSchema.parse(request.body);
+
+    let payload: WebLoginTicketPayload;
+    try {
+      payload = jwt.verify(token, jwtSecret) as WebLoginTicketPayload;
+    } catch {
+      return reply.code(401).send({ error: "ссылка недействительна или устарела" });
+    }
+    if (payload.purpose !== "web-login" || !payload.tgId) {
+      return reply.code(401).send({ error: "ссылка недействительна" });
+    }
+
+    return issueTelegramSession(fastify, {
+      telegramId: payload.tgId,
+      nickname: payload.nickname || payload.tgId,
+      avatarUrl: null,
+    });
   });
 
   // Browser-only login path for the TD panel (no Telegram app involved): a

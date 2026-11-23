@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Square, Copy, Archive, ArchiveRestore, Trash2, Download } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Square, Copy, Archive, ArchiveRestore, Trash2, Download, Upload } from "lucide-react";
 import { apiGet, apiPost, apiDelete, downloadTournamentExport } from "../lib/api.js";
 import { confirmDialog } from "../lib/telegram.js";
 import type { TournamentListItem } from "../lib/types.js";
@@ -22,6 +22,8 @@ export default function TournamentList({
   const [error, setError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   function load() {
     apiGet<TournamentListItem[]>(`/api/td/tournaments${showArchived ? "?includeArchived=true" : ""}`)
@@ -78,6 +80,24 @@ export default function TournamentList({
     }
   }
 
+  async function handleImportFile(file: File) {
+    setImporting(true);
+    setError(null);
+    try {
+      const raw = JSON.parse(await file.text());
+      const result = await apiPost<{ imported: boolean; name: string }>("/api/td/tournaments/import", raw);
+      if (!result.imported) {
+        setError(`«${result.name}» не обновлён — турнир уже идёт/завершён локально.`);
+      }
+      load();
+    } catch (err) {
+      setError(String((err as Error).message ?? err));
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }
+
   async function handleDelete(t: TournamentListItem) {
     const extra = t.status === "running" ? " Турнир ещё идёт!" : "";
     const ok = await confirmDialog(`Удалить турнир «${t.name}» безвозвратно?${extra} Это нельзя отменить.`);
@@ -86,11 +106,37 @@ export default function TournamentList({
 
   return (
     <div className="section">
-      <div className="row" style={{ marginBottom: 14 }}>
+      <div className="row" style={{ marginBottom: 14, gap: 8 }}>
         <strong>Турниры</strong>
-        <button className="btn btn-primary" style={{ width: "auto", padding: "8px 16px" }} onClick={onCreate}>
-          + Новый турнир
-        </button>
+        <div className="row" style={{ width: "auto", gap: 8 }}>
+          {isOwner && (
+            <>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImportFile(file);
+                }}
+              />
+              <button
+                className="btn btn-secondary"
+                style={{ width: "auto", padding: "8px 12px" }}
+                disabled={importing}
+                onClick={() => importInputRef.current?.click()}
+                title="Загрузить турнир из файла (пре-эвент синк из облака)"
+              >
+                <Upload size={14} style={{ marginRight: 4, verticalAlign: -2 }} />
+                Загрузить из файла
+              </button>
+            </>
+          )}
+          <button className="btn btn-primary" style={{ width: "auto", padding: "8px 16px" }} onClick={onCreate}>
+            + Новый турнир
+          </button>
+        </div>
       </div>
 
       <label className="row small muted" style={{ marginBottom: 14, cursor: "pointer" }}>
@@ -147,13 +193,13 @@ export default function TournamentList({
             >
               <Copy size={13} />
             </button>
-            {t.status === "finished" && isOwner && (
+            {(t.status === "finished" || t.status === "scheduled" || t.status === "registering") && isOwner && (
               <button
                 className="btn btn-secondary"
                 style={{ width: "auto", padding: "6px 10px", fontSize: 12 }}
                 disabled={busyId === t.id}
                 onClick={() => handleExport(t)}
-                title="Выгрузить (для переноса в облако)"
+                title={t.status === "finished" ? "Выгрузить (для переноса в облако)" : "Выгрузить (для офлайн-синка)"}
               >
                 <Download size={13} />
               </button>
