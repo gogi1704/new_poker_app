@@ -7,6 +7,7 @@ import Toggle from "../components/Toggle.js";
 import UserPanel from "../components/UserPanel.js";
 import ProfileEditor from "../components/ProfileEditor.js";
 import MembershipCard from "../components/MembershipCard.js";
+import InstallAppButton from "../components/InstallAppButton.js";
 import { confirmDialog } from "../lib/telegram.js";
 import type { ClubInfo } from "../components/Header.js";
 import { useRevalidateOnActive } from "../lib/useRevalidateOnActive.js";
@@ -176,6 +177,7 @@ export default function Profile({
 
       <strong className="small muted">НАСТРОЙКИ</strong>
       <div className="card" style={{ marginTop: 10 }}>
+        <InstallAppButton />
         <div className="row small" style={{ marginBottom: 12 }}>
           <span className="row" style={{ gap: 6, width: "auto" }}>
             <Bell size={16} /> Напоминания в Telegram

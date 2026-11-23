@@ -14,6 +14,12 @@
       "port": 5173
     },
     {
+      "name": "web-player-pwa-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@poker/web-player", "preview"],
+      "port": 5173
+    },
+    {
       "name": "web-td",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@poker/web-td", "dev"],
