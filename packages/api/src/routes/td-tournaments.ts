@@ -133,6 +133,26 @@ export default async function tdTournamentsRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Owner-only: used ONLY by the offline-launcher's background auto-pull
+  // (never the "Загрузить из файла" button, which stays on the safer
+  // "sync" mode) — keeps a local mirror continuously up to date with a
+  // cloud tournament that's already running, not just one still
+  // scheduled/registering. Refuses to touch a destination that's already
+  // finished/cancelled there, so a late pull can never resurrect or
+  // corrupt a genuinely closed-out event.
+  fastify.post("/api/td/tournaments/mirror-import", async (request, reply) => {
+    const club = await getDefaultClub(fastify.db);
+    const owner = await requireOwner(request, reply, fastify.db, club.id);
+    if (!owner) return;
+
+    try {
+      const result = await importTournamentExport(fastify.db, club.id, request.body, { mode: "mirror" });
+      return result;
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
+  });
+
   fastify.post("/api/td/tournaments", async (request, reply) => {
     const club = await getDefaultClub(fastify.db);
     const staff = await requireStaff(request, reply, fastify.db, club.id);

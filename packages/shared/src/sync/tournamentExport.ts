@@ -17,6 +17,11 @@ export interface TournamentExportData {
   // Carrying this is what lets a destination pick up a running tournament
   // at roughly the right blind level/time instead of restarting at level 1.
   clockState: typeof schema.tournamentClockState.$inferSelect | null;
+  // Carried so seat/table layout survives a sync too — registrations below
+  // still reference these by the *source* database's table id, which the
+  // import side remaps via tableNo (see tournamentImport.ts), exactly like
+  // player ids get remapped via telegramId.
+  tables: (typeof schema.tables.$inferSelect)[];
   players: TournamentExportPlayer[];
   registrations: (typeof schema.registrations.$inferSelect)[];
   results: (typeof schema.tournamentResults.$inferSelect)[];
@@ -38,6 +43,7 @@ export async function buildTournamentExport(db: Database, tournamentId: string):
   if (!tournament) throw new Error(`Tournament ${tournamentId} not found`);
 
   const blindLevels = await db.select().from(schema.blindLevels).where(eq(schema.blindLevels.tournamentId, tournamentId));
+  const tables = await db.select().from(schema.tables).where(eq(schema.tables.tournamentId, tournamentId));
   const registrations = await db
     .select()
     .from(schema.registrations)
@@ -76,6 +82,7 @@ export async function buildTournamentExport(db: Database, tournamentId: string):
     tournament,
     blindLevels,
     clockState: clockState ?? null,
+    tables,
     players: players.map((p) => ({
       localId: p.id,
       telegramId: p.telegramId,

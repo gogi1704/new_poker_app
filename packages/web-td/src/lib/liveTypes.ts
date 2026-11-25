@@ -36,7 +36,12 @@ export interface LiveElimination {
 export interface CheckinEntry {
   playerId: string;
   nickname: string;
-  status: "registered" | "checked_in";
+  // "active" here means "checked in and already seated" — check-in itself
+  // seats the player immediately (see services/checkin.ts on the API side),
+  // so this list doubles as the check-in desk's own table/box display.
+  status: "registered" | "checked_in" | "active";
+  tableNo: number | null;
+  seatNo: number | null;
 }
 
 export interface ChipLeader {

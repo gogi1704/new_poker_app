@@ -35,6 +35,13 @@ services:
     init: true
     env_file:
       - .env.local-offline
+    environment:
+      # This stack never leaves the laptop's closed LAN (see web-td's own
+      # 0.0.0.0 binding below, scoped to that same LAN) — the admin-password
+      # gate exists to protect the PUBLIC cloud deployment, not this one, so
+      # requiring it here is just friction with no real security benefit.
+      # Never set this in docker-compose.production.yml. See routes/auth.ts.
+      DISABLE_ADMIN_AUTH: "true"
     depends_on:
       postgres:
         condition: service_healthy

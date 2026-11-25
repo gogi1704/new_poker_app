@@ -22,15 +22,18 @@ export default function LiveConsole({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function action(path: string, body?: unknown) {
+  async function action(path: string, body?: unknown): Promise<unknown> {
     setBusy(true);
     setError(null);
     try {
-      await apiPost(`/api/td/tournaments/${tournamentId}${path}`, body ?? {});
-      // No local state update needed — the SSE push triggered by the action
-      // updates `state` for us.
+      // The SSE push triggered by the action updates `state` for everyone
+      // watching, but some callers (check-in) also want this one response
+      // directly — e.g. to show the assigned table/seat the instant it comes
+      // back, without waiting on/parsing the next SSE push.
+      return await apiPost(`/api/td/tournaments/${tournamentId}${path}`, body ?? {});
     } catch (err) {
       setError(String((err as Error).message ?? err));
+      return null;
     } finally {
       setBusy(false);
     }
@@ -83,6 +86,19 @@ export default function LiveConsole({
   );
 }
 
+interface SeatInfo {
+  tableNo: number;
+  seatNo: number;
+}
+
+function SeatBadge({ seat }: { seat: SeatInfo }) {
+  return (
+    <strong className="small" style={{ color: "var(--success)", whiteSpace: "nowrap" }}>
+      Стол {seat.tableNo} • Место {seat.seatNo}
+    </strong>
+  );
+}
+
 function CheckinPanel({
   state,
   busy,
@@ -90,21 +106,22 @@ function CheckinPanel({
 }: {
   state: LiveState;
   busy: boolean;
-  onAction: (path: string, body?: unknown) => Promise<void>;
+  onAction: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [walkinName, setWalkinName] = useState("");
   const [walkinBusy, setWalkinBusy] = useState(false);
+  // Shown as a big confirmation right after a QR scan or a new walk-in, so
+  // whoever's running the check-in desk can read the table/box straight off
+  // the screen instead of hunting for it in the table cards below.
+  const [lastSeat, setLastSeat] = useState<SeatInfo | null>(null);
 
   async function handleScan(token: string) {
     setScanning(false);
     setScanError(null);
-    try {
-      await onAction("/checkin-by-qr", { token });
-    } catch (err) {
-      setScanError(String((err as Error).message ?? err));
-    }
+    const res = (await onAction("/checkin-by-qr", { token })) as { seat?: SeatInfo | null; error?: string } | null;
+    if (res?.seat) setLastSeat(res.seat);
   }
 
   async function handleWalkin() {
@@ -113,14 +130,15 @@ function CheckinPanel({
     setWalkinBusy(true);
     setScanError(null);
     try {
-      await onAction("/register-walkin", { nickname });
+      const res = (await onAction("/register-walkin", { nickname })) as { seat?: SeatInfo | null } | null;
       setWalkinName("");
-    } catch (err) {
-      setScanError(String((err as Error).message ?? err));
+      if (res?.seat) setLastSeat(res.seat);
     } finally {
       setWalkinBusy(false);
     }
   }
+
+  const arrivedCount = state.checkinList.filter((p) => p.status !== "registered").length;
 
   return (
     <>
@@ -129,9 +147,21 @@ function CheckinPanel({
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="row small muted">
           <span>Зарегистрировано: {state.checkinList.length}</span>
-          <span>Чек-ин: {state.counts.checkedIn}</span>
+          <span>Чек-ин: {arrivedCount}</span>
         </div>
       </div>
+
+      {lastSeat && (
+        <div
+          className="card"
+          style={{ marginBottom: 14, textAlign: "center", border: "1px solid var(--success)" }}
+        >
+          <div className="small muted">Место выдано</div>
+          <div style={{ fontSize: 22, marginTop: 2 }}>
+            <SeatBadge seat={lastSeat} />
+          </div>
+        </div>
+      )}
 
       {scanError && (
         <div className="small" style={{ color: "var(--danger)", marginBottom: 10 }}>
@@ -169,42 +199,46 @@ function CheckinPanel({
       </div>
 
       <div className="row-list" style={{ marginBottom: 14 }}>
-        {state.checkinList.map((p) => (
-          <div className="row-item" key={p.playerId}>
-            <span>{p.nickname}</span>
-            <button
-              className={`btn ${p.status === "checked_in" ? "btn-primary" : "btn-secondary"}`}
-              style={{ width: "auto", padding: "6px 14px", fontSize: 12 }}
-              disabled={busy}
-              onClick={() => onAction("/checkin", { playerId: p.playerId, checkedIn: p.status !== "checked_in" })}
-            >
-              {p.status === "checked_in" ? "✓ Чек-ин" : "Отметить"}
-            </button>
-          </div>
-        ))}
+        {state.checkinList.map((p) => {
+          const seated = p.tableNo != null && p.seatNo != null;
+          return (
+            <div className="row-item" key={p.playerId}>
+              <span>{p.nickname}</span>
+              {seated ? (
+                <div className="row" style={{ gap: 8, width: "auto", alignItems: "center" }}>
+                  <SeatBadge seat={{ tableNo: p.tableNo!, seatNo: p.seatNo! }} />
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}
+                    disabled={busy}
+                    onClick={() => onAction("/checkin", { playerId: p.playerId, checkedIn: false })}
+                  >
+                    Отменить
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="btn btn-secondary"
+                  style={{ width: "auto", padding: "6px 14px", fontSize: 12 }}
+                  disabled={busy}
+                  onClick={() => onAction("/checkin", { playerId: p.playerId, checkedIn: true })}
+                >
+                  Отметить
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {state.tables.length === 0 ? (
-        <button
-          className="btn btn-secondary"
-          style={{ marginBottom: 14 }}
-          disabled={busy || state.counts.checkedIn < 2}
-          onClick={() => onAction("/draw-seats")}
-        >
-          🎲 Разложить места
-        </button>
-      ) : (
-        <SeatingDraft state={state} busy={busy} onAction={onAction} />
-      )}
+      <SeatingDraft state={state} busy={busy} onAction={onAction} />
 
       <button
         className="btn btn-primary"
         disabled={busy || state.counts.active < 2}
         onClick={() => onAction("/start")}
       >
-        {state.counts.active < 2
-          ? `Нужно ≥2 ${state.tables.length === 0 ? "игроков с чек-ином" : "за столами"}`
-          : `▶ Начать турнир (${state.counts.active})`}
+        {state.counts.active < 2 ? "Нужно ≥2 игроков с чек-ином" : `▶ Начать турнир (${state.counts.active})`}
       </button>
     </>
   );
@@ -218,7 +252,7 @@ function SeatingDraft({
 }: {
   state: LiveState;
   busy: boolean;
-  onAction: (path: string, body?: unknown) => Promise<void>;
+  onAction: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   return (
     <>
@@ -267,7 +301,7 @@ function TableTitle({
 }: {
   table: LiveTable;
   busy: boolean;
-  onAction: (path: string, body?: unknown) => Promise<void>;
+  onAction: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [label, setLabel] = useState(table.label ?? "");
 
@@ -304,7 +338,7 @@ function SeatRowPreStart({
   seat: LiveSeat;
   tables: LiveTable[];
   busy: boolean;
-  onAction: (path: string, body?: unknown) => Promise<void>;
+  onAction: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [moving, setMoving] = useState(false);
   const [target, setTarget] = useState("");
@@ -368,7 +402,7 @@ function RunningConsole({
 }: {
   state: LiveState;
   busy: boolean;
-  onAction: (path: string, body?: unknown) => Promise<void>;
+  onAction: (path: string, body?: unknown) => Promise<unknown>;
   onPublish: () => void;
 }) {
   const elapsed = useTickingElapsed(state.clock);
@@ -561,7 +595,7 @@ function LevelJumpAndAnnounce({
 }: {
   tournamentId: string;
   busy: boolean;
-  onAction: (path: string, body?: unknown) => Promise<void>;
+  onAction: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [levels, setLevels] = useState<BlindLevel[]>([]);
   const [levelNumber, setLevelNumber] = useState("");
@@ -644,7 +678,7 @@ function SeatRow({
   onEliminatorChange: (v: string) => void;
   eliminatorOptions: { playerId: string; nickname: string }[];
   busy: boolean;
-  onAction: (path: string, body?: unknown) => Promise<void>;
+  onAction: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [stackInput, setStackInput] = useState(String(seat.currentStack ?? ""));
   const [moving, setMoving] = useState(false);
@@ -757,7 +791,7 @@ function RebuyForm({
 }: {
   state: LiveState;
   busy: boolean;
-  onAction: (path: string, body?: unknown) => Promise<void>;
+  onAction: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [playerId, setPlayerId] = useState("");
   const eliminatedPlayers = state.eliminations.map((e) => ({ playerId: e.playerId, nickname: e.nickname }));

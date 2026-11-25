@@ -7,6 +7,7 @@ import { schema } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { requireStaff } from "../services/staff.js";
 import { publishTournamentUpdate } from "../services/realtime.js";
+import { checkInAndSeat } from "../services/checkin.js";
 
 type RegisterResult = { ok: true; status: string } | { ok: false; code: number; error: string };
 
@@ -158,9 +159,17 @@ export default async function tdScanRoutes(fastify: FastifyInstance) {
 
     const result = await registerPlayerInTournament(fastify, club.id, id, player.id);
     if (!result.ok) return reply.code(result.code).send({ error: result.error });
+
+    // A walk-in is by definition already standing at the desk — check them
+    // in and seat them in the same step instead of making the TD tap
+    // "Отметить" separately, and hand back the table/box right away.
+    const [tournament] = await fastify.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id));
+    const seat = tournament ? await checkInAndSeat(fastify.db, id, tournament, player.id) : null;
+
     return {
       player: { id: player.id, nickname: player.nickname, avatarUrl: player.avatarUrl },
       status: result.status,
+      seat,
     };
   });
 }

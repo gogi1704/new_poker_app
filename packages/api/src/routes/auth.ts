@@ -81,11 +81,17 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) return reply.code(500).send({ error: "server misconfigured" });
 
-    const { password } = passwordSchema.parse(request.body);
-
     const club = await getDefaultClub(fastify.db);
-    if (!club.adminPasswordHash || !verifyAdminPassword(password, club.adminPasswordHash)) {
-      return reply.code(401).send({ error: "неверный пароль" });
+
+    // Set only on the local/offline deployment (docker-compose.local.yml) —
+    // that stack never leaves the laptop's closed LAN, so the password gate
+    // is pure friction there, not a real protection like it is on the
+    // public cloud deployment. Any request body (even {}) succeeds.
+    if (process.env.DISABLE_ADMIN_AUTH !== "true") {
+      const { password } = passwordSchema.parse(request.body);
+      if (!club.adminPasswordHash || !verifyAdminPassword(password, club.adminPasswordHash)) {
+        return reply.code(401).send({ error: "неверный пароль" });
+      }
     }
 
     const token = jwt.sign({ adminClubId: club.id }, jwtSecret, { expiresIn: "24h" });

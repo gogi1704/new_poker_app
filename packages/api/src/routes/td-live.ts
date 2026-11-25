@@ -7,7 +7,8 @@ import { getDefaultClub } from "../services/club.js";
 import { requireStaff } from "../services/staff.js";
 import { buildLiveState } from "../services/live.js";
 import { publishTournamentUpdate } from "../services/realtime.js";
-import { dealInitialSeats, rebalanceTables, firstFreeSeat } from "../services/seating.js";
+import { dealInitialSeats, rebalanceTables } from "../services/seating.js";
+import { seatPlayerIntoActiveTable, checkInAndSeat, undoCheckIn } from "../services/checkin.js";
 import { computeFinalStandings, suggestPayouts } from "../services/standings.js";
 import { setAnnouncement } from "../services/announcements.js";
 
@@ -75,71 +76,25 @@ async function dealSeatsForTournament(
   return true;
 }
 
-/**
- * Seats a player at the least-full active table, creating a new one if every
- * active table is full. Shared by re-entry (rebuy handler) and undo-knockout,
- * which both need to put a player who isn't currently seated back onto the
- * floor without the TD having to pick a specific seat.
- */
-async function seatPlayerIntoActiveTable(
-  fastify: FastifyInstance,
-  tournamentId: string,
-  playerId: string,
-  maxSeatsPerTable: number,
-) {
-  const tableRows = await fastify.db
-    .select()
-    .from(schema.tables)
-    .where(and(eq(schema.tables.tournamentId, tournamentId), eq(schema.tables.isActive, true)));
-
-  const occupancy = await Promise.all(
-    tableRows.map(async (t) => {
-      const seated = await fastify.db
-        .select({ seatNo: schema.registrations.seatNo })
-        .from(schema.registrations)
-        .where(and(eq(schema.registrations.seatTableId, t.id), eq(schema.registrations.status, "active")));
-      return { table: t, takenSeats: new Set(seated.map((s) => s.seatNo).filter((n): n is number => n != null)) };
-    }),
-  );
-  occupancy.sort((a, b) => a.takenSeats.size - b.takenSeats.size);
-
-  let target = occupancy[0];
-  if (!target || target.takenSeats.size >= maxSeatsPerTable) {
-    const [newTable] = await fastify.db
-      .insert(schema.tables)
-      .values({ tournamentId, tableNo: tableRows.length + 1, maxSeats: maxSeatsPerTable })
-      .returning();
-    target = { table: newTable, takenSeats: new Set() };
-  }
-
-  const seatNo = firstFreeSeat(target.takenSeats);
-  await fastify.db
-    .update(schema.registrations)
-    .set({ status: "active", seatTableId: target.table.id, seatNo })
-    .where(and(eq(schema.registrations.tournamentId, tournamentId), eq(schema.registrations.playerId, playerId)));
-}
-
 export default async function tdLiveRoutes(fastify: FastifyInstance) {
-  // ---- check-in ----
+  // ---- check-in: seats the player immediately (table + box), so the TD can
+  // tell them on the spot where to sit instead of waiting for a later batch
+  // seating step ----
 
   fastify.post("/api/td/tournaments/:id/checkin", async (request, reply) => {
     const ctx = await requireStaffAndTournament(fastify, request, reply);
     if (!ctx) return;
+    const { tournament } = ctx;
     const { id } = request.params as { id: string };
     const { playerId, checkedIn } = z.object({ playerId: z.string().uuid(), checkedIn: z.boolean() }).parse(
       request.body,
     );
 
-    await fastify.db
-      .update(schema.registrations)
-      .set({ status: checkedIn ? "checked_in" : "registered" })
-      .where(
-        and(
-          eq(schema.registrations.tournamentId, id),
-          eq(schema.registrations.playerId, playerId),
-          sql`${schema.registrations.status} in ('registered', 'checked_in')`,
-        ),
-      );
+    if (checkedIn) {
+      await checkInAndSeat(fastify.db, id, tournament, playerId);
+    } else {
+      await undoCheckIn(fastify.db, id, playerId);
+    }
 
     return respond(fastify, id);
   });
@@ -147,12 +102,19 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
   fastify.post("/api/td/tournaments/:id/checkin-all", async (request, reply) => {
     const ctx = await requireStaffAndTournament(fastify, request, reply);
     if (!ctx) return;
+    const { tournament } = ctx;
     const { id } = request.params as { id: string };
 
-    await fastify.db
-      .update(schema.registrations)
-      .set({ status: "checked_in" })
+    const pending = await fastify.db
+      .select({ playerId: schema.registrations.playerId })
+      .from(schema.registrations)
       .where(and(eq(schema.registrations.tournamentId, id), eq(schema.registrations.status, "registered")));
+
+    // Sequential, not Promise.all: each seat assignment reads current table
+    // occupancy fresh, so running them concurrently would race and double-book seats.
+    for (const p of pending) {
+      await checkInAndSeat(fastify.db, id, tournament, p.playerId);
+    }
 
     return respond(fastify, id);
   });
@@ -424,7 +386,7 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
         levelNumberAtPurchase: levelNumber,
       });
 
-      await seatPlayerIntoActiveTable(fastify, id, playerId, tournament.maxSeatsPerTable);
+      await seatPlayerIntoActiveTable(fastify.db, id, playerId, tournament.maxSeatsPerTable);
       await fastify.db
         .update(schema.registrations)
         .set({ currentStack: tournament.startingStack })
@@ -555,7 +517,7 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
     await fastify.db.delete(schema.knockouts).where(eq(schema.knockouts.id, lastKnockout.id));
     // The eliminated player's old seat was cleared at elimination time, so
     // there's nothing to restore to — reseat fresh, same as a re-entry.
-    await seatPlayerIntoActiveTable(fastify, id, lastKnockout.eliminatedPlayerId, tournament.maxSeatsPerTable);
+    await seatPlayerIntoActiveTable(fastify.db, id, lastKnockout.eliminatedPlayerId, tournament.maxSeatsPerTable);
 
     return respond(fastify, id);
   });
@@ -625,6 +587,7 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
   fastify.post("/api/td/tournaments/:id/checkin-by-qr", async (request, reply) => {
     const ctx = await requireStaffAndTournament(fastify, request, reply);
     if (!ctx) return;
+    const { tournament } = ctx;
     const { id } = request.params as { id: string };
     const { token } = z.object({ token: z.string().min(1) }).parse(request.body);
 
@@ -650,12 +613,13 @@ export default async function tdLiveRoutes(fastify: FastifyInstance) {
       return reply.code(409).send({ error: `player is already ${reg.status}` });
     }
 
-    await fastify.db
-      .update(schema.registrations)
-      .set({ status: "checked_in" })
-      .where(eq(schema.registrations.id, reg.id));
+    const seat = await checkInAndSeat(fastify.db, id, tournament, payload.playerId);
 
-    return respond(fastify, id);
+    // SSE already pushes the full state to every connected view; this
+    // response additionally carries the seat directly so the scanner UI can
+    // show "Стол X, место Y" the instant the scan completes, with no need to
+    // wait on/parse the next SSE push.
+    return { ...(await respond(fastify, id)), seat };
   });
 
   // ---- publish results ----

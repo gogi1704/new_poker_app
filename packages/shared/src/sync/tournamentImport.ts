@@ -30,6 +30,12 @@ function assertExportShape(raw: unknown): asserts raw is TournamentExportData {
       throw new Error(`Это не файл экспорта турнира (отсутствует поле "${key}")`);
     }
   }
+  // Older export files (before table/seat layout was added to the sync
+  // payload) simply don't have this field — tolerated as "no tables",
+  // unlike the fields above which have always been required.
+  if (data.tables !== undefined && !Array.isArray(data.tables)) {
+    throw new Error(`Это не файл экспорта турнира (поле "tables" повреждено)`);
+  }
 }
 
 export interface TournamentImportOptions {
@@ -41,18 +47,21 @@ export interface TournamentImportOptions {
    * offline → cloud CLI script, run against a DB that was never the
    * tournament's origin). Used by the offline → cloud CLI script.
    *
-   * "sync": used for BOTH directions of the cloud ↔ local round trip (the
-   * pre-event cloud → local push, and the bot's post-event offline → cloud
-   * import) — meant to be re-run repeatedly. If the tournament already
-   * exists at the destination and hasn't started there yet (status
-   * "scheduled"/"registering" — either a not-yet-run cloud placeholder, or a
-   * local draft), its settings/blind levels/registrations/results are
-   * replaced with the fresh export instead of being skipped. Refuses to
-   * touch a tournament that's already running/paused/finished/cancelled at
-   * the destination, so a stray re-sync can never clobber real played
-   * results.
+   * "sync": the pre-event cloud → local push (the "Загрузить из файла"
+   * button) and the bot's post-event offline → cloud import — meant to be
+   * re-run repeatedly, but only while the destination hasn't actually
+   * started yet (status "scheduled"/"registering"). Refuses to touch one
+   * that's already running/paused/finished/cancelled there, so a stray
+   * re-run can never clobber real played results.
+   *
+   * "mirror": the offline-launcher's background auto-pull (cloud → local,
+   * while online) — the whole point is to keep a close copy of a
+   * tournament that's already running, so unlike "sync" it keeps updating
+   * through running/paused too. Only refuses a destination that's already
+   * "finished"/"cancelled", i.e. genuinely closed out — never resurrected
+   * or corrupted by a late pull.
    */
-  mode?: "archive" | "sync";
+  mode?: "archive" | "sync" | "mirror";
 }
 
 /**
@@ -72,6 +81,7 @@ export async function importTournamentExport(
 ): Promise<TournamentImportResult> {
   assertExportShape(raw);
   const { tournament, blindLevels, clockState, players, registrations, results, knockouts, rebuys, rpsLedger } = raw;
+  const tables = raw.tables ?? [];
   const mode = options.mode ?? "archive";
 
   const scheduledAt = new Date(tournament.scheduledAt);
@@ -96,6 +106,15 @@ export async function importTournamentExport(
   }
 
   if (existingTournament && mode === "sync" && !["scheduled", "registering"].includes(existingTournament.status)) {
+    return {
+      imported: false,
+      tournamentId: existingTournament.id,
+      name: tournament.name,
+      counts: { players: 0, results: 0, knockouts: 0, rpsLedger: 0 },
+    };
+  }
+
+  if (existingTournament && mode === "mirror" && ["finished", "cancelled"].includes(existingTournament.status)) {
     return {
       imported: false,
       tournamentId: existingTournament.id,
@@ -163,8 +182,34 @@ export async function importTournamentExport(
       .returning();
     await db.delete(schema.blindLevels).where(eq(schema.blindLevels.tournamentId, newTournament.id));
     await db.delete(schema.registrations).where(eq(schema.registrations.tournamentId, newTournament.id));
+    await db.delete(schema.tables).where(eq(schema.tables.tournamentId, newTournament.id));
   } else {
     [newTournament] = await db.insert(schema.tournaments).values({ clubId, ...tournamentValues }).returning();
+  }
+
+  // Tables are matched/remapped by tableNo (not id, same reasoning as player
+  // identity): the source and destination databases hand out independent
+  // table ids, so a registration's seatTableId below has to be translated
+  // through tableNo, not copied as-is.
+  const tableIdBySourceId = new Map<string, string>();
+  if (tables.length) {
+    const insertedTables = await db
+      .insert(schema.tables)
+      .values(
+        tables.map((t) => ({
+          tournamentId: newTournament.id,
+          tableNo: t.tableNo,
+          maxSeats: t.maxSeats,
+          isActive: t.isActive,
+          label: t.label,
+        })),
+      )
+      .returning();
+    const destTableIdByTableNo = new Map(insertedTables.map((t) => [t.tableNo, t.id]));
+    for (const t of tables) {
+      const destId = destTableIdByTableNo.get(t.tableNo);
+      if (destId) tableIdBySourceId.set(t.id, destId);
+    }
   }
 
   if (blindLevels.length) {
@@ -187,6 +232,8 @@ export async function importTournamentExport(
         tournamentId: newTournament.id,
         playerId: playerIdMap.get(r.playerId)!,
         status: r.status,
+        seatTableId: r.seatTableId ? tableIdBySourceId.get(r.seatTableId) ?? null : null,
+        seatNo: r.seatNo,
         currentStack: r.currentStack,
         arrivedBeforeLateReg: r.arrivedBeforeLateReg,
         registeredAt: new Date(r.registeredAt),
@@ -197,8 +244,8 @@ export async function importTournamentExport(
   // Carries over the blind-clock position so a destination picking up a
   // tournament that's already running (e.g. the offline laptop taking over
   // from the cloud mid-event) starts near the right level/time instead of
-  // level 1 — table/seat layout isn't carried (see buildTournamentExport),
-  // so seating still needs a manual re-deal on the destination once.
+  // level 1. Table/seat layout is carried too (see tables/tableIdBySourceId
+  // above), so players land at the same table/box they were at on the source.
   await db.delete(schema.tournamentClockState).where(eq(schema.tournamentClockState.tournamentId, newTournament.id));
   if (clockState) {
     await db.insert(schema.tournamentClockState).values({

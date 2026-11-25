@@ -115,9 +115,26 @@ export async function buildLiveState(db: Database, tournamentId: string) {
     at: k.createdAt,
   }));
 
+  // "active" is included here too (not just registered/checked_in): before
+  // the clock actually starts, check-in itself already seats the player (see
+  // services/checkin.ts), so this is also the list the check-in desk uses to
+  // show each arrival their assigned table + box. Once the tournament is
+  // running, the CheckinPanel this feeds isn't rendered any more — "active"
+  // then means something else (currently seated, clock running) and is read
+  // from `tables` instead.
+  const tableRowById = new Map(tableRows.map((t) => [t.id, t]));
   const checkinList = registrations
-    .filter((r) => r.status === "registered" || r.status === "checked_in")
-    .map((r) => ({ playerId: r.playerId, nickname: r.nickname, status: r.status }));
+    .filter((r) => r.status === "registered" || r.status === "checked_in" || r.status === "active")
+    .map((r) => {
+      const table = r.seatTableId ? tableRowById.get(r.seatTableId) : undefined;
+      return {
+        playerId: r.playerId,
+        nickname: r.nickname,
+        status: r.status,
+        tableNo: table?.tableNo ?? null,
+        seatNo: r.seatNo ?? null,
+      };
+    });
 
   const activeWithStacks = registrations.filter((r) => r.status === "active" && r.currentStack != null);
   const chipLeader = activeWithStacks.length
