@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Don-Poker Offline</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Don-Poker — Офлайн-режим</h1>
+      <p class="subtitle">Локальный стек для турниров без интернета</p>
+    </header>
+
+    <div id="network-banner" class="banner hidden">
+      <span id="network-banner-text"></span>
+      <div class="banner-actions">
+        <button id="network-banner-open">Открыть панель</button>
+        <button id="network-banner-dismiss">Понятно</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="row">
+        <span class="label">Папка проекта</span>
+        <span id="repo-path" class="value">не выбрана</span>
+        <button id="pick-repo">Выбрать папку</button>
+      </div>
+      <div class="row">
+        <span class="label">Docker</span>
+        <span id="docker-pill" class="pill pill-unknown">проверяю…</span>
+        <span class="label">Стек</span>
+        <span id="stack-pill" class="pill pill-unknown">проверяю…</span>
+        <button id="refresh">Обновить статус</button>
+      </div>
+    </section>
+
+    <section class="card actions">
+      <input id="admin-password" type="text" placeholder="Пароль для входа в панель" />
+      <button id="btn-setup" class="primary">Настроить (разово)</button>
+      <button id="btn-start">Запустить</button>
+      <button id="btn-stop">Остановить</button>
+      <button id="btn-open">Открыть панель</button>
+    </section>
+    <p class="hint">
+      Пароль задаётся/меняется каждый раз, когда нажимаешь «Настроить» с заполненным полем.
+      Оставь поле пустым, если просто хочешь пересобрать стек без изменения пароля.
+    </p>
+
+    <section class="card">
+      <div class="label">Адреса для других устройств (телефон TD, табло):</div>
+      <ul id="lan-list" class="lan-list"><li class="muted">—</li></ul>
+    </section>
+
+    <section class="card log-card">
+      <div class="label">Журнал</div>
+      <pre id="log"></pre>
+    </section>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

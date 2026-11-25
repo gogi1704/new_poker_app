@@ -34,18 +34,23 @@ function assertExportShape(raw: unknown): asserts raw is TournamentExportData {
 
 export interface TournamentImportOptions {
   /**
-   * "archive" (default): one-time, post-event sync — skips (does not
-   * duplicate) a tournament already present, matched by name + scheduledAt.
-   * Used by the offline → cloud CLI script and the bot's document-upload
-   * handler.
+   * "archive" (default): one-time import — skips (does not duplicate) a
+   * tournament already present, matched by name + scheduledAt, regardless of
+   * its status. Only correct for a destination that could never already
+   * have a row for this tournament under any status (e.g. the standalone
+   * offline → cloud CLI script, run against a DB that was never the
+   * tournament's origin). Used by the offline → cloud CLI script.
    *
-   * "sync": pre-event, cloud → local prep — meant to be re-run repeatedly as
-   * more players register before the TD leaves for the venue. If the
-   * tournament already exists locally and hasn't started yet (status
-   * "scheduled"/"registering"), its settings/blind levels/registrations are
+   * "sync": used for BOTH directions of the cloud ↔ local round trip (the
+   * pre-event cloud → local push, and the bot's post-event offline → cloud
+   * import) — meant to be re-run repeatedly. If the tournament already
+   * exists at the destination and hasn't started there yet (status
+   * "scheduled"/"registering" — either a not-yet-run cloud placeholder, or a
+   * local draft), its settings/blind levels/registrations/results are
    * replaced with the fresh export instead of being skipped. Refuses to
-   * touch a tournament that's already running/paused/finished/cancelled
-   * locally, so a stray re-sync can never clobber real played results.
+   * touch a tournament that's already running/paused/finished/cancelled at
+   * the destination, so a stray re-sync can never clobber real played
+   * results.
    */
   mode?: "archive" | "sync";
 }

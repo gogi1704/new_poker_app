@@ -42,7 +42,14 @@ export function registerImportDocumentHandler(bot: Bot, db: Database) {
       if (!res.ok) throw new Error(`не удалось скачать файл у Telegram (${res.status})`);
       const raw = await res.json();
 
-      const result = await importTournamentExport(db, club.id, raw);
+      // "sync" (not the default "archive") because the cloud side usually
+      // still has the stale pre-event row this tournament was originally
+      // pushed down FROM (still "scheduled"/"registering" — nothing ran it
+      // there) — "archive" would see that row, assume it's already been
+      // transferred, and silently skip without ever writing the real
+      // results. "sync" updates that stale row instead, and still refuses
+      // to touch one that's already running/paused/finished in the cloud.
+      const result = await importTournamentExport(db, club.id, raw, { mode: "sync" });
       if (!result.imported) {
         await ctx.reply(`⚠️ Турнир «${result.name}» уже был перенесён ранее — пропускаю.`);
         return;

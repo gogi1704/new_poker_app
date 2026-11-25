@@ -1,0 +1,37 @@
+{
+  "name": "@poker/offline-launcher",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "pnpm build && electron .",
+    "dist": "pnpm build && electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8",
+    "typescript": "5.7.3"
+  },
+  "build": {
+    "appId": "io.donpoker.offline-launcher",
+    "productName": "Don-Poker Offline",
+    "files": [
+      "dist/**/*",
+      "renderer/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
