@@ -3,8 +3,9 @@ import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { loadConfig, looksLikeRepo, saveConfig } from "./config";
 import { checkDockerStatus, composeStatus, runCommand, streamTo } from "./docker";
-import { startNetworkWatcher } from "./network";
+import { checkInternet, startNetworkWatcher } from "./network";
 import { runSetup } from "./setup";
+import { listCloudTournaments, pullFromCloud, pushToCloud } from "./sync";
 
 let win: BrowserWindow | null = null;
 let busy = false;
@@ -32,11 +33,41 @@ function createWindow(): void {
   win.loadFile(join(__dirname, "..", "renderer", "index.html"));
 }
 
+const PULL_INTERVAL_MS = 60000;
+let syncBusy = false;
+
+// Fires on a plain timer rather than off the network-watcher's transition
+// events, so it doesn't depend on that watcher's state — it just checks
+// connectivity itself right before trying. Silently skipped (no log spam)
+// whenever sync isn't configured yet or a push/pull is already in flight.
+function startAutoPull(): void {
+  setInterval(async () => {
+    if (syncBusy) return;
+    const config = loadConfig();
+    if (!config.cloudApiUrl || !config.cloudAdminPassword || !config.trackedTournamentId) return;
+    if (!(await checkInternet())) return;
+    syncBusy = true;
+    try {
+      const result = await pullFromCloud(config);
+      if (result.localTournamentId) saveConfig({ localTournamentId: result.localTournamentId });
+      win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ${result.summary}\n` });
+    } catch (err) {
+      win?.webContents.send("log", {
+        type: "log",
+        text: `\n[синхронизация] ошибка: ${err instanceof Error ? err.message : String(err)}\n`,
+      });
+    } finally {
+      syncBusy = false;
+    }
+  }, PULL_INTERVAL_MS);
+}
+
 app.whenReady().then(() => {
   createWindow();
   startNetworkWatcher((status) => {
     win?.webContents.send("network-status", { type: "network", status });
   });
+  startAutoPull();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -106,6 +137,9 @@ ipcMain.handle("run-setup", (_event, adminPassword?: string) =>
     const repoPath = requireRepoPath();
     if (!win) return;
     await runSetup(repoPath, streamTo(win, "log"), adminPassword || undefined);
+    // Also remembered for cloud<->local sync (sync.ts), which needs to log
+    // into this same local panel on its own, in the background.
+    if (adminPassword) saveConfig({ localAdminPassword: adminPassword });
   }),
 );
 
@@ -119,6 +153,64 @@ ipcMain.handle("run-start", () =>
       { cwd: repoPath },
       streamTo(win, "log"),
     );
+  }),
+);
+
+ipcMain.handle(
+  "cloud-list-tournaments",
+  async (_event, cloudApiUrl: string, cloudAdminPassword: string): Promise<{ ok: boolean; reason?: string; tournaments?: Awaited<ReturnType<typeof listCloudTournaments>> }> => {
+    try {
+      const tournaments = await listCloudTournaments(cloudApiUrl, cloudAdminPassword);
+      // Only remembered once login+list actually succeeds — never save
+      // unverified credentials.
+      saveConfig({ cloudApiUrl, cloudAdminPassword });
+      return { ok: true, tournaments };
+    } catch (err) {
+      return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+    }
+  },
+);
+
+ipcMain.handle("set-local-password", (_event, localAdminPassword: string) => saveConfig({ localAdminPassword }));
+
+ipcMain.handle("select-tracked-tournament", (_event, id: string, name: string) =>
+  // Resets localTournamentId: switching the tracked tournament means the
+  // next pull should treat it as a fresh one, not push-target the
+  // previously tracked tournament's local copy.
+  saveConfig({ trackedTournamentId: id, trackedTournamentName: name, localTournamentId: null }),
+);
+
+// Separate from withBusyGuard's `busy` (docker setup/start/stop) — a sync
+// call is quick and unrelated to those, but must still never overlap the
+// background auto-pull timer or another manual sync call.
+async function withSyncGuard(action: () => Promise<string>): Promise<{ ok: boolean; reason?: string }> {
+  if (syncBusy) return { ok: false, reason: "Синхронизация уже выполняется" };
+  syncBusy = true;
+  try {
+    const summary = await action();
+    win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ${summary}\n` });
+    return { ok: true };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ошибка: ${reason}\n` });
+    return { ok: false, reason };
+  } finally {
+    syncBusy = false;
+  }
+}
+
+ipcMain.handle("sync-pull-now", () =>
+  withSyncGuard(async () => {
+    const result = await pullFromCloud(loadConfig());
+    if (result.localTournamentId) saveConfig({ localTournamentId: result.localTournamentId });
+    return result.summary;
+  }),
+);
+
+ipcMain.handle("sync-push-now", () =>
+  withSyncGuard(async () => {
+    const result = await pushToCloud(loadConfig());
+    return result.summary;
   }),
 );
 

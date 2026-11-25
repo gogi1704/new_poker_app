@@ -71,7 +71,7 @@ export async function importTournamentExport(
   options: TournamentImportOptions = {},
 ): Promise<TournamentImportResult> {
   assertExportShape(raw);
-  const { tournament, blindLevels, players, registrations, results, knockouts, rebuys, rpsLedger } = raw;
+  const { tournament, blindLevels, clockState, players, registrations, results, knockouts, rebuys, rpsLedger } = raw;
   const mode = options.mode ?? "archive";
 
   const scheduledAt = new Date(tournament.scheduledAt);
@@ -192,6 +192,22 @@ export async function importTournamentExport(
         registeredAt: new Date(r.registeredAt),
       })),
     );
+  }
+
+  // Carries over the blind-clock position so a destination picking up a
+  // tournament that's already running (e.g. the offline laptop taking over
+  // from the cloud mid-event) starts near the right level/time instead of
+  // level 1 — table/seat layout isn't carried (see buildTournamentExport),
+  // so seating still needs a manual re-deal on the destination once.
+  await db.delete(schema.tournamentClockState).where(eq(schema.tournamentClockState.tournamentId, newTournament.id));
+  if (clockState) {
+    await db.insert(schema.tournamentClockState).values({
+      tournamentId: newTournament.id,
+      currentLevelNumber: clockState.currentLevelNumber,
+      levelStartedAt: clockState.levelStartedAt ? new Date(clockState.levelStartedAt) : null,
+      pausedAt: clockState.pausedAt ? new Date(clockState.pausedAt) : null,
+      elapsedPauseSeconds: clockState.elapsedPauseSeconds,
+    });
   }
 
   if (results.length) {

@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld("launcher", {
   runSetup: (adminPassword?: string) => ipcRenderer.invoke("run-setup", adminPassword),
   runStart: () => ipcRenderer.invoke("run-start"),
   runStop: () => ipcRenderer.invoke("run-stop"),
+  cloudListTournaments: (cloudApiUrl: string, cloudAdminPassword: string) =>
+    ipcRenderer.invoke("cloud-list-tournaments", cloudApiUrl, cloudAdminPassword),
+  setLocalPassword: (localAdminPassword: string) => ipcRenderer.invoke("set-local-password", localAdminPassword),
+  selectTrackedTournament: (id: string, name: string) =>
+    ipcRenderer.invoke("select-tracked-tournament", id, name),
+  syncPullNow: () => ipcRenderer.invoke("sync-pull-now"),
+  syncPushNow: () => ipcRenderer.invoke("sync-push-now"),
   onLog: (callback: (message: LogMessage) => void) => {
     ipcRenderer.on("log", (_event, message: LogMessage) => callback(message));
   },

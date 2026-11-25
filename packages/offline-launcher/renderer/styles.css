@@ -94,7 +94,9 @@ button.primary {
   flex-wrap: wrap;
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="password"],
+select {
   background: #0a0a0a;
   color: var(--text);
   border: 1px solid var(--border);

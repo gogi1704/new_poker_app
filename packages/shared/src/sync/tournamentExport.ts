@@ -13,6 +13,10 @@ export interface TournamentExportData {
   exportedAt: string;
   tournament: typeof schema.tournaments.$inferSelect;
   blindLevels: (typeof schema.blindLevels.$inferSelect)[];
+  // Null when the tournament never started (no row exists until /start).
+  // Carrying this is what lets a destination pick up a running tournament
+  // at roughly the right blind level/time instead of restarting at level 1.
+  clockState: typeof schema.tournamentClockState.$inferSelect | null;
   players: TournamentExportPlayer[];
   registrations: (typeof schema.registrations.$inferSelect)[];
   results: (typeof schema.tournamentResults.$inferSelect)[];
@@ -48,6 +52,10 @@ export async function buildTournamentExport(db: Database, tournamentId: string):
     .from(schema.rebuyAddonTransactions)
     .where(eq(schema.rebuyAddonTransactions.tournamentId, tournamentId));
   const rpsLedger = await db.select().from(schema.rpsLedger).where(eq(schema.rpsLedger.tournamentId, tournamentId));
+  const [clockState] = await db
+    .select()
+    .from(schema.tournamentClockState)
+    .where(eq(schema.tournamentClockState.tournamentId, tournamentId));
 
   const playerIds = new Set<string>();
   for (const r of registrations) playerIds.add(r.playerId);
@@ -67,6 +75,7 @@ export async function buildTournamentExport(db: Database, tournamentId: string):
     exportedAt: new Date().toISOString(),
     tournament,
     blindLevels,
+    clockState: clockState ?? null,
     players: players.map((p) => ({
       localId: p.id,
       telegramId: p.telegramId,

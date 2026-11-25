@@ -27,6 +27,65 @@ function setBusy(busy) {
   for (const btn of actionButtons) btn.disabled = busy;
 }
 
+const cloudUrlEl = document.getElementById("cloud-url");
+const cloudPasswordEl = document.getElementById("cloud-password");
+const localPasswordEl = document.getElementById("local-password");
+const connectBtn = document.getElementById("btn-cloud-connect");
+const trackedSelectEl = document.getElementById("tracked-tournament");
+const syncStatusEl = document.getElementById("sync-status");
+const syncPullBtn = document.getElementById("btn-sync-pull");
+const syncPushBtn = document.getElementById("btn-sync-push");
+
+let cloudTournaments = [];
+
+function describeSyncStatus(config) {
+  if (!config.cloudApiUrl || !config.cloudAdminPassword) return "не настроено";
+  if (!config.trackedTournamentId) return "подключено, турнир не выбран";
+  return "отслеживается: " + (config.trackedTournamentName ?? config.trackedTournamentId);
+}
+
+async function refreshSyncPanel() {
+  const config = await window.launcher.getConfig();
+  if (config.cloudApiUrl) cloudUrlEl.value = config.cloudApiUrl;
+  syncStatusEl.textContent = describeSyncStatus(config);
+  if (config.trackedTournamentId && ![...trackedSelectEl.options].some((o) => o.value === config.trackedTournamentId)) {
+    const opt = document.createElement("option");
+    opt.value = config.trackedTournamentId;
+    opt.textContent = config.trackedTournamentName ?? config.trackedTournamentId;
+    trackedSelectEl.appendChild(opt);
+  }
+  if (config.trackedTournamentId) trackedSelectEl.value = config.trackedTournamentId;
+}
+
+connectBtn.addEventListener("click", async () => {
+  if (localPasswordEl.value.trim()) await window.launcher.setLocalPassword(localPasswordEl.value.trim());
+  const result = await window.launcher.cloudListTournaments(cloudUrlEl.value.trim(), cloudPasswordEl.value.trim());
+  if (!result.ok) {
+    appendLog("\n[синхронизация] Ошибка подключения: " + (result.reason ?? "неизвестная") + "\n");
+    return;
+  }
+  cloudTournaments = result.tournaments;
+  trackedSelectEl.innerHTML = '<option value="">—</option>';
+  for (const t of cloudTournaments) {
+    const opt = document.createElement("option");
+    opt.value = t.id;
+    opt.textContent = t.name + " — " + t.status + " — " + new Date(t.scheduledAt).toLocaleString("ru-RU");
+    trackedSelectEl.appendChild(opt);
+  }
+  await refreshSyncPanel();
+  appendLog("\n[синхронизация] Подключено, турниров в облаке: " + cloudTournaments.length + "\n");
+});
+
+trackedSelectEl.addEventListener("change", async () => {
+  if (!trackedSelectEl.value) return;
+  const t = cloudTournaments.find((x) => x.id === trackedSelectEl.value);
+  await window.launcher.selectTrackedTournament(trackedSelectEl.value, t ? t.name : trackedSelectEl.value);
+  await refreshSyncPanel();
+});
+
+syncPullBtn.addEventListener("click", () => runGuarded(window.launcher.syncPullNow, "Синхронизация из облака"));
+syncPushBtn.addEventListener("click", () => runGuarded(window.launcher.syncPushNow, "Выгрузка в облако"));
+
 async function refreshRepo() {
   const config = await window.launcher.getConfig();
   repoPathEl.textContent = config.repoPath ?? "не выбрана";
@@ -66,7 +125,7 @@ async function refreshLan() {
 }
 
 async function refreshAll() {
-  await Promise.all([refreshRepo(), refreshDocker(), refreshStack(), refreshLan()]);
+  await Promise.all([refreshRepo(), refreshDocker(), refreshStack(), refreshLan(), refreshSyncPanel()]);
 }
 
 window.launcher.onLog((message) => {
@@ -75,26 +134,30 @@ window.launcher.onLog((message) => {
 
 const networkBannerEl = document.getElementById("network-banner");
 const networkBannerTextEl = document.getElementById("network-banner-text");
-const networkBannerOpenBtn = document.getElementById("network-banner-open");
+const networkBannerActionBtn = document.getElementById("network-banner-action");
 const networkBannerDismissBtn = document.getElementById("network-banner-dismiss");
 
 function showNetworkBanner(status) {
   networkBannerEl.classList.remove("banner-offline", "banner-online", "hidden");
   if (status === "offline") {
     networkBannerEl.classList.add("banner-offline");
-    networkBannerTextEl.textContent =
-      "⚠ Сеть пропала. Веди турнир в локальной (оффлайн) панели — данные перенесёшь в облако, когда сеть вернётся.";
+    networkBannerTextEl.textContent = "⚠ Сеть пропала. Веди турнир в локальной (оффлайн) панели.";
+    networkBannerActionBtn.textContent = "Открыть панель";
+    networkBannerActionBtn.onclick = () => window.launcher.openPanel();
   } else {
     networkBannerEl.classList.add("banner-online");
-    networkBannerTextEl.textContent =
-      "✅ Сеть восстановлена. Когда турнир закончится — скачай экспорт в локальной панели и отправь файл боту, чтобы перенести результаты в облако.";
+    networkBannerTextEl.textContent = "✅ Сеть восстановлена. Выгрузить турнир в облако?";
+    networkBannerActionBtn.textContent = "Синхронизировать в облако";
+    networkBannerActionBtn.onclick = () =>
+      runGuarded(window.launcher.syncPushNow, "Выгрузка в облако").then(() =>
+        networkBannerEl.classList.add("hidden"),
+      );
   }
 }
 
 networkBannerDismissBtn.addEventListener("click", () => {
   networkBannerEl.classList.add("hidden");
 });
-networkBannerOpenBtn.addEventListener("click", () => window.launcher.openPanel());
 
 window.launcher.onNetworkStatus((message) => {
   if (message.type === "network") showNetworkBanner(message.status);

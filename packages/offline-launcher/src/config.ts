@@ -4,7 +4,28 @@ import { join } from "node:path";
 
 export interface LauncherConfig {
   repoPath: string | null;
+  // Direct cloud<->local sync (see sync.ts) — no manual export/import files.
+  cloudApiUrl: string | null;
+  cloudAdminPassword: string | null;
+  localAdminPassword: string | null;
+  trackedTournamentId: string | null;
+  trackedTournamentName: string | null;
+  // The matching tournament's id on the LOCAL side, filled in after the
+  // first successful pull — local/cloud are separate databases with
+  // independent ids, so this is what lets a later push-back know which
+  // local tournament to export.
+  localTournamentId: string | null;
 }
+
+const DEFAULT_CONFIG: LauncherConfig = {
+  repoPath: null,
+  cloudApiUrl: null,
+  cloudAdminPassword: null,
+  localAdminPassword: null,
+  trackedTournamentId: null,
+  trackedTournamentName: null,
+  localTournamentId: null,
+};
 
 function configPath(): string {
   return join(app.getPath("userData"), "config.json");
@@ -12,16 +33,21 @@ function configPath(): string {
 
 export function loadConfig(): LauncherConfig {
   const path = configPath();
-  if (!existsSync(path)) return { repoPath: null };
+  if (!existsSync(path)) return { ...DEFAULT_CONFIG };
   try {
-    return { repoPath: null, ...JSON.parse(readFileSync(path, "utf-8")) };
+    return { ...DEFAULT_CONFIG, ...JSON.parse(readFileSync(path, "utf-8")) };
   } catch {
-    return { repoPath: null };
+    return { ...DEFAULT_CONFIG };
   }
 }
 
-export function saveConfig(config: LauncherConfig): void {
-  writeFileSync(configPath(), JSON.stringify(config, null, 2), "utf-8");
+// Merges onto the existing stored config instead of replacing it wholesale
+// — callers pass only the fields they're changing, so saving e.g. just
+// repoPath doesn't wipe out the cloud-sync settings saved earlier.
+export function saveConfig(patch: Partial<LauncherConfig>): LauncherConfig {
+  const merged = { ...loadConfig(), ...patch };
+  writeFileSync(configPath(), JSON.stringify(merged, null, 2), "utf-8");
+  return merged;
 }
 
 // A repo folder is valid if it's the actual project root — checked by the
