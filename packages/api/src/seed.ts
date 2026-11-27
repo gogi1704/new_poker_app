@@ -186,7 +186,7 @@ async function ensureFinishedTournament(
     const player = participants[i];
     const knockouts = format === "knockout" ? (knockoutCounts[i] ?? 0) : 0;
     const bountyPoints = knockouts * 50;
-    const rps = calculateRps({ place, fieldSize, knockouts, params: { knockoutPoints: 50 } });
+    const rps = calculateRps({ place, fieldSize, knockoutBounty: bountyPoints, params: { knockoutPoints: 50 } });
 
     await db.insert(schema.tournamentResults).values({
       tournamentId: tournament.id,

@@ -7,7 +7,6 @@ export interface LauncherConfig {
   // Direct cloud<->local sync (see sync.ts) — no manual export/import files.
   cloudApiUrl: string | null;
   cloudAdminPassword: string | null;
-  localAdminPassword: string | null;
   trackedTournamentId: string | null;
   trackedTournamentName: string | null;
   // The matching tournament's id on the LOCAL side, filled in after the
@@ -21,7 +20,6 @@ const DEFAULT_CONFIG: LauncherConfig = {
   repoPath: null,
   cloudApiUrl: null,
   cloudAdminPassword: null,
-  localAdminPassword: null,
   trackedTournamentId: null,
   trackedTournamentName: null,
   localTournamentId: null,

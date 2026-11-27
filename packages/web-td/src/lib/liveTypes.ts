@@ -28,6 +28,7 @@ export interface LiveElimination {
   playerId: string;
   nickname: string;
   eliminatedByNickname: string | null;
+  bountyPoints: number | null;
   place: number;
   levelNumber: number;
   at: string;
@@ -48,6 +49,11 @@ export interface ChipLeader {
   playerId: string;
   nickname: string;
   stack: number;
+}
+
+export interface WaitlistEntry {
+  playerId: string;
+  nickname: string;
 }
 
 export interface BoardAnnouncement {
@@ -116,6 +122,7 @@ export interface LiveState {
     reentryPrice: string | null;
     addonPrice: string | null;
     addonStack: number | null;
+    rpsFormulaParams: { knockoutPoints: number; placementWeight?: number };
   };
   clock: LiveClock | null;
   counts: {
@@ -124,11 +131,13 @@ export interface LiveState {
     eliminated: number;
     fieldSize: number;
     tablesActive: number;
+    waitlisted: number;
   };
   blindLevels: BlindLevel[];
   tables: LiveTable[];
   eliminations: LiveElimination[];
   checkinList: CheckinEntry[];
+  waitlist: WaitlistEntry[];
   chipLeader: ChipLeader | null;
   /** place -> amount; JSON round-trips object keys as strings. */
   payoutPreview: Record<string, number>;

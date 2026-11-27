@@ -58,8 +58,9 @@ export async function seatPlayerIntoActiveTable(
  * them immediately, so the TD can tell them their table/seat on the spot
  * instead of waiting for a later batch seating step. Returns null if the
  * player isn't in a state check-in applies to (already seated, eliminated,
- * cancelled, or not registered at all) — a harmless no-op, not an error,
- * since checkin-all calls this over every pending registration at once.
+ * cancelled, or not registered at all) — a harmless no-op, not an error.
+ * Deliberately per-player only: there is no bulk "check everyone in" action,
+ * since an online registration is not proof the player actually showed up.
  */
 export async function checkInAndSeat(
   db: Database,

@@ -84,6 +84,7 @@ function buildPreviewState(club: ClubResponse): LiveState {
       reentryPrice: "1000",
       addonPrice: null,
       addonStack: null,
+      rpsFormulaParams: { knockoutPoints: 50, placementWeight: 1 },
     },
     clock: {
       levelNumber: 4,
@@ -93,7 +94,7 @@ function buildPreviewState(club: ClubResponse): LiveState {
       level: { levelNumber: 4, smallBlind: 200, bigBlind: 400, ante: 400, durationMinutes: 20, isBreak: false },
       nextLevel: { levelNumber: 5, smallBlind: 300, bigBlind: 600, ante: 600, durationMinutes: 20, isBreak: false },
     },
-    counts: { checkedIn: 22, active: 18, eliminated: 4, fieldSize: 22, tablesActive: 2 },
+    counts: { checkedIn: 22, active: 18, eliminated: 4, fieldSize: 22, tablesActive: 2, waitlisted: 0 },
     blindLevels: [
       { levelNumber: 4, smallBlind: 200, bigBlind: 400, ante: 400, durationMinutes: 20, isBreak: false },
       { levelNumber: 5, smallBlind: 300, bigBlind: 600, ante: 600, durationMinutes: 20, isBreak: false },
@@ -111,10 +112,11 @@ function buildPreviewState(club: ClubResponse): LiveState {
       },
     ],
     eliminations: [
-      { playerId: "p3", nickname: "Игорь", eliminatedByNickname: "Алексей", place: 22, levelNumber: 3, at: now },
-      { playerId: "p4", nickname: "Светлана", eliminatedByNickname: "Мария", place: 21, levelNumber: 2, at: now },
+      { playerId: "p3", nickname: "Игорь", eliminatedByNickname: "Алексей", bountyPoints: 50, place: 22, levelNumber: 3, at: now },
+      { playerId: "p4", nickname: "Светлана", eliminatedByNickname: "Мария", bountyPoints: 100, place: 21, levelNumber: 2, at: now },
     ],
     checkinList: [],
+    waitlist: [],
     chipLeader: { playerId: "p1", nickname: "Алексей", stack: 48500 },
     payoutPreview: { "1": 15000, "2": 9000, "3": 5000 },
     announcement: null,

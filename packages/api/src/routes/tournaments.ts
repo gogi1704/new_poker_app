@@ -3,6 +3,12 @@ import { and, asc, desc, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { schema } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { requireAuth } from "../plugins/auth.js";
+import { sendDirectMessage } from "../services/telegram-broadcast.js";
+
+// Registrations in either of these statuses don't occupy a real seat — used
+// everywhere "how full is this tournament" needs an answer (seat caps, the
+// public seats-filled count).
+const NON_SEAT_STATUSES: ("cancelled" | "waitlisted")[] = ["cancelled", "waitlisted"];
 
 export default async function tournamentsRoutes(fastify: FastifyInstance) {
   fastify.get("/api/tournaments", async (request) => {
@@ -15,7 +21,7 @@ export default async function tournamentsRoutes(fastify: FastifyInstance) {
     // qualifies column names when the outer query itself has more than one table.
     const seatsFilledSubquery = sql<number>`(
       select count(*) from ${schema.registrations} r
-      where r.tournament_id = tournaments.id and r.status != 'cancelled'
+      where r.tournament_id = tournaments.id and r.status not in ('cancelled', 'waitlisted')
     )`;
 
     const rows = await fastify.db
@@ -77,7 +83,19 @@ export default async function tournamentsRoutes(fastify: FastifyInstance) {
       })
       .from(schema.registrations)
       .innerJoin(schema.players, eq(schema.players.id, schema.registrations.playerId))
-      .where(and(eq(schema.registrations.tournamentId, id), ne(schema.registrations.status, "cancelled")));
+      .where(and(eq(schema.registrations.tournamentId, id), notInArray(schema.registrations.status, NON_SEAT_STATUSES)));
+
+    const waitlistRows = await fastify.db
+      .select({
+        playerId: schema.registrations.playerId,
+        nickname: schema.players.nickname,
+        avatarUrl: schema.players.avatarUrl,
+        registeredAt: schema.registrations.registeredAt,
+      })
+      .from(schema.registrations)
+      .innerJoin(schema.players, eq(schema.players.id, schema.registrations.playerId))
+      .where(and(eq(schema.registrations.tournamentId, id), eq(schema.registrations.status, "waitlisted")))
+      .orderBy(asc(schema.registrations.registeredAt));
 
     const playerIds = participantRows.map((p) => p.playerId);
     const rpsByPlayer = new Map<string, number>();
@@ -106,12 +124,19 @@ export default async function tournamentsRoutes(fastify: FastifyInstance) {
       myRegistration = rows[0] ?? null;
     }
 
+    const myWaitlistPosition =
+      myRegistration?.status === "waitlisted"
+        ? waitlistRows.findIndex((w) => w.playerId === request.playerId) + 1
+        : null;
+
     return {
       ...tournament,
       blindLevels,
       seatsFilled: participants.length,
       participants,
+      waitlist: waitlistRows,
       myRegistration,
+      myWaitlistPosition,
     };
   });
 
@@ -138,19 +163,20 @@ export default async function tournamentsRoutes(fastify: FastifyInstance) {
     const [{ seatsFilled }] = await fastify.db
       .select({ seatsFilled: sql<number>`count(*)` })
       .from(schema.registrations)
-      .where(and(eq(schema.registrations.tournamentId, id), ne(schema.registrations.status, "cancelled")));
+      .where(and(eq(schema.registrations.tournamentId, id), notInArray(schema.registrations.status, NON_SEAT_STATUSES)));
 
-    if (Number(seatsFilled) >= tournament.maxSeats) {
-      return reply.code(409).send({ error: "tournament is full" });
-    }
+    // Full tournament doesn't reject registration any more — it joins the
+    // waitlist (FIFO by registeredAt) and gets auto-promoted the moment a
+    // real seat frees up, see unregister below.
+    const status = Number(seatsFilled) >= tournament.maxSeats ? "waitlisted" : "registered";
 
     const [registration] = existing
       ? await fastify.db
           .update(schema.registrations)
-          .set({ status: "registered", registeredAt: new Date() })
+          .set({ status, registeredAt: new Date() })
           .where(eq(schema.registrations.id, existing.id))
           .returning()
-      : await fastify.db.insert(schema.registrations).values({ tournamentId: id, playerId }).returning();
+      : await fastify.db.insert(schema.registrations).values({ tournamentId: id, playerId, status }).returning();
 
     return { registration, seatsFilled: await countSeats(fastify, id) };
   });
@@ -166,10 +192,12 @@ export default async function tournamentsRoutes(fastify: FastifyInstance) {
       .where(and(eq(schema.registrations.tournamentId, id), eq(schema.registrations.playerId, playerId)));
 
     if (existing && existing.status !== "cancelled") {
+      const freedRealSeat = existing.status !== "waitlisted";
       await fastify.db
         .update(schema.registrations)
         .set({ status: "cancelled" })
         .where(eq(schema.registrations.id, existing.id));
+      if (freedRealSeat) await promoteNextWaitlisted(fastify, id);
     }
 
     return { seatsFilled: await countSeats(fastify, id) };
@@ -180,6 +208,32 @@ async function countSeats(fastify: FastifyInstance, tournamentId: string) {
   const [{ seatsFilled }] = await fastify.db
     .select({ seatsFilled: sql<number>`count(*)` })
     .from(schema.registrations)
-    .where(and(eq(schema.registrations.tournamentId, tournamentId), ne(schema.registrations.status, "cancelled")));
+    .where(and(eq(schema.registrations.tournamentId, tournamentId), notInArray(schema.registrations.status, NON_SEAT_STATUSES)));
   return Number(seatsFilled);
+}
+
+// Called whenever a real (non-waitlisted) seat frees up — moves the
+// longest-waiting queued player into it and lets them know. The DM is
+// best-effort (see sendDirectMessage) so a missing BOT_TOKEN or a blocked
+// chat never stops the promotion itself from taking effect.
+async function promoteNextWaitlisted(fastify: FastifyInstance, tournamentId: string) {
+  const [next] = await fastify.db
+    .select()
+    .from(schema.registrations)
+    .where(and(eq(schema.registrations.tournamentId, tournamentId), eq(schema.registrations.status, "waitlisted")))
+    .orderBy(asc(schema.registrations.registeredAt))
+    .limit(1);
+  if (!next) return;
+
+  await fastify.db.update(schema.registrations).set({ status: "registered" }).where(eq(schema.registrations.id, next.id));
+
+  const [tournament] = await fastify.db
+    .select({ name: schema.tournaments.name })
+    .from(schema.tournaments)
+    .where(eq(schema.tournaments.id, tournamentId));
+  await sendDirectMessage(
+    fastify.db,
+    next.playerId,
+    `🎉 Освободилось место в турнире «${tournament?.name ?? ""}» — вы переведены из очереди в число участников!`,
+  );
 }

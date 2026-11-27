@@ -31,6 +31,12 @@ export interface Participant {
   status: string;
 }
 
+export interface WaitlistEntry {
+  playerId: string;
+  nickname: string;
+  avatarUrl: string | null;
+}
+
 export interface TournamentDetail extends TournamentSummary {
   clubId: string;
   lateRegUntilLevel: number | null;
@@ -42,7 +48,9 @@ export interface TournamentDetail extends TournamentSummary {
   arriveBonusStack: number;
   blindLevels: BlindLevel[];
   participants: Participant[];
+  waitlist: WaitlistEntry[];
   myRegistration: { status: string } | null;
+  myWaitlistPosition: number | null;
 }
 
 export interface ResultsListTournament {

@@ -57,3 +57,29 @@ export async function sendBroadcast(db: Database, clubId: string, text: string):
 
   return { sent: sentCount, failed: failedCount };
 }
+
+/**
+ * One-off DM to a single player (e.g. "you've been moved off the waitlist
+ * into the tournament"), same opt-out check as sendBroadcast. Never throws —
+ * callers fire this from inside a mutation that must succeed regardless of
+ * whether Telegram delivery does (missing BOT_TOKEN, blocked bot, synthetic
+ * local-* walk-in identity with no real chat behind it, etc.).
+ */
+export async function sendDirectMessage(db: Database, playerId: string, text: string): Promise<boolean> {
+  const [player] = await db.select({ telegramId: schema.players.telegramId }).from(schema.players).where(eq(schema.players.id, playerId));
+  if (!player) return false;
+
+  const [sub] = await db
+    .select()
+    .from(schema.pushSubscriptions)
+    .where(and(eq(schema.pushSubscriptions.playerId, playerId), eq(schema.pushSubscriptions.type, "telegram_dm")));
+  if (sub && !sub.enabled) return false;
+
+  try {
+    await getBot().api.sendMessage(player.telegramId, text);
+    return true;
+  } catch (err) {
+    console.error(`DM failed for player ${playerId}:`, err);
+    return false;
+  }
+}

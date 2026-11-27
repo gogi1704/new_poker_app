@@ -154,11 +154,33 @@ export default function TournamentDetail({
               </div>
             </div>
 
+            {tournament.waitlist.length > 0 && (
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div className="row small" style={{ justifyContent: "flex-start", gap: 6 }}>
+                  <Users size={14} color="var(--accent)" />
+                  <strong>Очередь ожидания ({tournament.waitlist.length})</strong>
+                </div>
+                <div className="row-list" style={{ marginTop: 10 }}>
+                  {tournament.waitlist.map((p, i) => (
+                    <div className="standing-row" key={p.playerId}>
+                      <div className="row" style={{ gap: 12, justifyContent: "flex-start", minWidth: 0 }}>
+                        <span className="standing-rank plain">{i + 1}</span>
+                        <Avatar nickname={p.nickname} avatarUrl={p.avatarUrl} size={40} />
+                        <div className="standing-name">{p.nickname}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {tournament.myRegistration && tournament.myRegistration.status !== "cancelled" ? (
               <>
                 <button className="btn btn-secondary" disabled={submitting}>
                   <Check size={16} style={{ marginRight: 6, verticalAlign: -3 }} />
-                  Вы записаны
+                  {tournament.myRegistration.status === "waitlisted"
+                    ? `Вы в очереди${tournament.myWaitlistPosition ? ` (№${tournament.myWaitlistPosition})` : ""}`
+                    : "Вы записаны"}
                 </button>
                 <button
                   className="small muted"
@@ -166,19 +188,15 @@ export default function TournamentDetail({
                   disabled={submitting}
                   onClick={handleUnregister}
                 >
-                  Отменить запись
+                  {tournament.myRegistration.status === "waitlisted" ? "Покинуть очередь" : "Отменить запись"}
                 </button>
               </>
             ) : (
-              <button
-                className="btn btn-primary"
-                disabled={submitting || tournament.participants.length >= tournament.maxSeats}
-                onClick={handleRegister}
-              >
+              <button className="btn btn-primary" disabled={submitting} onClick={handleRegister}>
                 {submitting
                   ? "Записываем…"
                   : tournament.participants.length >= tournament.maxSeats
-                    ? "Мест нет"
+                    ? "Встать в очередь"
                     : "Записаться на турнир"}
               </button>
             )}

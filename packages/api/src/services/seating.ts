@@ -1,25 +1,6 @@
 /** Fallback only — every tournament now carries its own maxSeatsPerTable (default 9). */
 export const DEFAULT_MAX_SEATS_PER_TABLE = 9;
 
-export interface SeatAssignment {
-  playerId: string;
-  tableNo: number;
-  seatNo: number;
-}
-
-/** Shuffles players and deals them round-robin across the minimum number of tables. */
-export function dealInitialSeats(playerIds: string[], maxSeatsPerTable = DEFAULT_MAX_SEATS_PER_TABLE): SeatAssignment[] {
-  const shuffled = [...playerIds].sort(() => Math.random() - 0.5);
-  const tableCount = Math.max(1, Math.ceil(shuffled.length / maxSeatsPerTable));
-  const seatCounters = new Array(tableCount).fill(0);
-
-  return shuffled.map((playerId, i) => {
-    const tableNo = (i % tableCount) + 1;
-    seatCounters[tableNo - 1] += 1;
-    return { playerId, tableNo, seatNo: seatCounters[tableNo - 1] };
-  });
-}
-
 export interface TableOccupancy {
   tableNo: number;
   /** Existing seat -> player assignments at this table. */

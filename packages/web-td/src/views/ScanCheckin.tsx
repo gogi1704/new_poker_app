@@ -9,7 +9,7 @@ interface ScannedTournament {
   name: string;
   status: string;
   scheduledAt: string;
-  myStatus: "none" | "registered" | "checked_in" | "active" | "eliminated" | "cancelled";
+  myStatus: "none" | "registered" | "checked_in" | "active" | "eliminated" | "cancelled" | "waitlisted";
 }
 
 interface ScanResult {
@@ -45,8 +45,11 @@ export default function ScanCheckin({ onClose }: { onClose: () => void }) {
     setBusyId(t.id);
     setError(null);
     try {
-      await apiPost(`/api/td/tournaments/${t.id}/register-player`, { playerId: result.player.id });
-      patchStatus(t.id, "registered");
+      const res = await apiPost<{ status: ScannedTournament["myStatus"] }>(
+        `/api/td/tournaments/${t.id}/register-player`,
+        { playerId: result.player.id },
+      );
+      patchStatus(t.id, res.status);
     } catch (err) {
       setError(String((err as Error).message ?? err));
     } finally {
@@ -168,6 +171,7 @@ export default function ScanCheckin({ onClose }: { onClose: () => void }) {
                   </span>
                 )}
                 {t.myStatus === "eliminated" && <span className="small muted">Выбыл</span>}
+                {t.myStatus === "waitlisted" && <span className="small muted">В очереди ожидания</span>}
               </div>
             ))}
           </div>

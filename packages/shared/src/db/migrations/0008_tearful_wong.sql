@@ -1,0 +1,1 @@
+ALTER TABLE "knockouts" ADD COLUMN "bounty_points" integer;

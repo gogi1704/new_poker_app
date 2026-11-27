@@ -5,7 +5,7 @@ import { loadConfig, looksLikeRepo, saveConfig } from "./config";
 import { checkDockerStatus, composeStatus, runCommand, streamTo } from "./docker";
 import { checkInternet, startNetworkWatcher } from "./network";
 import { runSetup } from "./setup";
-import { listCloudTournaments, pullFromCloud, pushToCloud } from "./sync";
+import { listCloudTournaments, pullFromCloud, pullRosterAndClub, pushToCloud } from "./sync";
 
 let win: BrowserWindow | null = null;
 let busy = false;
@@ -36,36 +36,68 @@ function createWindow(): void {
 const PULL_INTERVAL_MS = 60000;
 let syncBusy = false;
 
+// Set once we go offline while a tournament is tracked, and only cleared by
+// an explicit TD action (push to cloud, or an explicit "nothing changed,
+// resume" dismissal) — never automatically on reconnect. Without this, the
+// very next 60s timer tick after the network comes back would silently pull
+// the cloud's (now stale) copy of the tournament and overwrite whatever the
+// TD actually did locally while offline — exactly the moment this sync
+// exists to protect, not endanger.
+let pullSuspended = false;
+
+function sendSyncStatus(outcome: { ok: boolean; summary: string }): void {
+  win?.webContents.send("sync-status", { type: "sync", ...outcome, at: Date.now() });
+}
+
 // Fires on a plain timer rather than off the network-watcher's transition
 // events, so it doesn't depend on that watcher's state — it just checks
 // connectivity itself right before trying. Silently skipped (no log spam)
 // whenever sync isn't configured yet or a push/pull is already in flight.
+// Two independent steps every tick:
+//  1. Club settings + full player roster — always safe, runs as soon as
+//     cloud credentials are connected, even with no tournament tracked yet
+//     and even while tournament auto-pull is suspended (step 2 below).
+//  2. The tracked tournament itself — the dangerous direction, so it's
+//     skipped entirely while pullSuspended (an offline period happened and
+//     the TD hasn't yet said what to do about it).
 function startAutoPull(): void {
   setInterval(async () => {
     if (syncBusy) return;
     const config = loadConfig();
-    if (!config.cloudApiUrl || !config.cloudAdminPassword || !config.trackedTournamentId) return;
+    if (!config.cloudApiUrl || !config.cloudAdminPassword) return;
     if (!(await checkInternet())) return;
     syncBusy = true;
+
     try {
-      const result = await pullFromCloud(config);
-      if (result.localTournamentId) saveConfig({ localTournamentId: result.localTournamentId });
-      win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ${result.summary}\n` });
+      const rosterResult = await pullRosterAndClub(config);
+      win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ${rosterResult.summary}\n` });
     } catch (err) {
-      win?.webContents.send("log", {
-        type: "log",
-        text: `\n[синхронизация] ошибка: ${err instanceof Error ? err.message : String(err)}\n`,
-      });
-    } finally {
-      syncBusy = false;
+      const reason = err instanceof Error ? err.message : String(err);
+      win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ошибка (клуб/игроки): ${reason}\n` });
     }
+
+    if (!pullSuspended && config.trackedTournamentId) {
+      try {
+        const result = await pullFromCloud(config);
+        if (result.localTournamentId) saveConfig({ localTournamentId: result.localTournamentId });
+        win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ${result.summary}\n` });
+        sendSyncStatus({ ok: true, summary: result.summary });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ошибка: ${reason}\n` });
+        sendSyncStatus({ ok: false, summary: reason });
+      }
+    }
+
+    syncBusy = false;
   }, PULL_INTERVAL_MS);
 }
 
 app.whenReady().then(() => {
   createWindow();
   startNetworkWatcher((status) => {
-    win?.webContents.send("network-status", { type: "network", status });
+    if (status === "offline" && loadConfig().trackedTournamentId) pullSuspended = true;
+    win?.webContents.send("network-status", { type: "network", status, pullSuspended });
   });
   startAutoPull();
   app.on("activate", () => {
@@ -78,6 +110,20 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle("get-config", () => loadConfig());
+
+// The network watcher only announces a *change* (and stays silent on its
+// very first check if already online — see network.ts) — the renderer
+// needs this on load too, to show a real status instead of "checking…"
+// forever whenever the app happens to start already online.
+ipcMain.handle("check-internet", () => checkInternet());
+
+ipcMain.handle("pull-suspended", () => pullSuspended);
+
+ipcMain.handle("resume-auto-pull", () => {
+  pullSuspended = false;
+  win?.webContents.send("log", { type: "log", text: "\n[синхронизация] Автосинхронизация возобновлена.\n" });
+  return { ok: true };
+});
 
 ipcMain.handle("pick-repo-folder", async () => {
   if (!win) return loadConfig();
@@ -132,14 +178,11 @@ async function withBusyGuard(action: () => Promise<void>): Promise<{ ok: boolean
   }
 }
 
-ipcMain.handle("run-setup", (_event, adminPassword?: string) =>
+ipcMain.handle("run-setup", () =>
   withBusyGuard(async () => {
     const repoPath = requireRepoPath();
     if (!win) return;
-    await runSetup(repoPath, streamTo(win, "log"), adminPassword || undefined);
-    // Also remembered for cloud<->local sync (sync.ts), which needs to log
-    // into this same local panel on its own, in the background.
-    if (adminPassword) saveConfig({ localAdminPassword: adminPassword });
+    await runSetup(repoPath, streamTo(win, "log"));
   }),
 );
 
@@ -171,14 +214,15 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle("set-local-password", (_event, localAdminPassword: string) => saveConfig({ localAdminPassword }));
-
-ipcMain.handle("select-tracked-tournament", (_event, id: string, name: string) =>
+ipcMain.handle("select-tracked-tournament", (_event, id: string, name: string) => {
   // Resets localTournamentId: switching the tracked tournament means the
   // next pull should treat it as a fresh one, not push-target the
-  // previously tracked tournament's local copy.
-  saveConfig({ trackedTournamentId: id, trackedTournamentName: name, localTournamentId: null }),
-);
+  // previously tracked tournament's local copy. Also lifts any suspension
+  // left over from the previous tournament — nothing to protect for a
+  // brand-new selection.
+  pullSuspended = false;
+  return saveConfig({ trackedTournamentId: id, trackedTournamentName: name, localTournamentId: null });
+});
 
 // Separate from withBusyGuard's `busy` (docker setup/start/stop) — a sync
 // call is quick and unrelated to those, but must still never overlap the
@@ -189,10 +233,12 @@ async function withSyncGuard(action: () => Promise<string>): Promise<{ ok: boole
   try {
     const summary = await action();
     win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ${summary}\n` });
+    sendSyncStatus({ ok: true, summary });
     return { ok: true };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     win?.webContents.send("log", { type: "log", text: `\n[синхронизация] ошибка: ${reason}\n` });
+    sendSyncStatus({ ok: false, summary: reason });
     return { ok: false, reason };
   } finally {
     syncBusy = false;
@@ -201,15 +247,20 @@ async function withSyncGuard(action: () => Promise<string>): Promise<{ ok: boole
 
 ipcMain.handle("sync-pull-now", () =>
   withSyncGuard(async () => {
-    const result = await pullFromCloud(loadConfig());
+    const config = loadConfig();
+    const rosterResult = await pullRosterAndClub(config);
+    const result = await pullFromCloud(config);
     if (result.localTournamentId) saveConfig({ localTournamentId: result.localTournamentId });
-    return result.summary;
+    return `${rosterResult.summary}; ${result.summary}`;
   }),
 );
 
 ipcMain.handle("sync-push-now", () =>
   withSyncGuard(async () => {
     const result = await pushToCloud(loadConfig());
+    // Cloud now matches (or was already ahead of) local — safe to let the
+    // automatic timer resume.
+    pullSuspended = false;
     return result.summary;
   }),
 );

@@ -91,6 +91,13 @@ interface SeatInfo {
   seatNo: number;
 }
 
+interface PlayerHit {
+  id: string;
+  telegramId: string;
+  nickname: string;
+  avatarUrl: string | null;
+}
+
 function SeatBadge({ seat }: { seat: SeatInfo }) {
   return (
     <strong className="small" style={{ color: "var(--success)", whiteSpace: "nowrap" }}>
@@ -112,10 +119,14 @@ function CheckinPanel({
   const [scanError, setScanError] = useState<string | null>(null);
   const [walkinName, setWalkinName] = useState("");
   const [walkinBusy, setWalkinBusy] = useState(false);
+  const [walkinHits, setWalkinHits] = useState<PlayerHit[]>([]);
   // Shown as a big confirmation right after a QR scan or a new walk-in, so
   // whoever's running the check-in desk can read the table/box straight off
   // the screen instead of hunting for it in the table cards below.
   const [lastSeat, setLastSeat] = useState<SeatInfo | null>(null);
+  // Set instead of lastSeat when the tournament is full and the person just
+  // joined the waitlist rather than getting a seat right away.
+  const [waitlistNotice, setWaitlistNotice] = useState<string | null>(null);
 
   async function handleScan(token: string) {
     setScanning(false);
@@ -124,15 +135,72 @@ function CheckinPanel({
     if (res?.seat) setLastSeat(res.seat);
   }
 
+  // Finds an EXISTING bot user by nickname as the TD types — important
+  // offline, where this searches the full player roster mirrored onto the
+  // laptop (see playerRoster.ts), not just people already registered for
+  // this tournament — so adding someone who didn't pre-register online
+  // reuses their real identity instead of creating a duplicate walk-in.
+  useEffect(() => {
+    const q = walkinName.trim();
+    if (q.length < 2) {
+      setWalkinHits([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      apiGet<PlayerHit[]>(`/api/td/players/search?q=${encodeURIComponent(q)}`)
+        .then(setWalkinHits)
+        .catch(() => setWalkinHits([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [walkinName]);
+
+  async function handlePickExisting(hit: PlayerHit) {
+    setWalkinBusy(true);
+    setScanError(null);
+    try {
+      const res = (await onAction("/register-existing", { playerId: hit.id })) as {
+        seat?: SeatInfo | null;
+        status?: string;
+      } | null;
+      setWalkinName("");
+      setWalkinHits([]);
+      if (res?.status === "waitlisted") {
+        setLastSeat(null);
+        setWaitlistNotice(`${hit.nickname} в очереди ожидания — турнир заполнен`);
+      } else if (res?.seat) {
+        setWaitlistNotice(null);
+        setLastSeat(res.seat);
+      }
+    } finally {
+      setWalkinBusy(false);
+    }
+  }
+
   async function handleWalkin() {
     const nickname = walkinName.trim();
     if (!nickname) return;
     setWalkinBusy(true);
     setScanError(null);
     try {
-      const res = (await onAction("/register-walkin", { nickname })) as { seat?: SeatInfo | null } | null;
+      const res = (await onAction("/register-walkin", { nickname })) as { seat?: SeatInfo | null; status?: string } | null;
       setWalkinName("");
-      if (res?.seat) setLastSeat(res.seat);
+      setWalkinHits([]);
+      if (res?.status === "waitlisted") {
+        setLastSeat(null);
+        setWaitlistNotice(`${nickname} в очереди ожидания — турнир заполнен`);
+      } else if (res?.seat) {
+        setWaitlistNotice(null);
+        setLastSeat(res.seat);
+      }
+    } finally {
+      setWalkinBusy(false);
+    }
+  }
+
+  async function handlePromote(playerId: string) {
+    setWalkinBusy(true);
+    try {
+      await onAction("/promote-waitlist", { playerId });
     } finally {
       setWalkinBusy(false);
     }
@@ -148,6 +216,7 @@ function CheckinPanel({
         <div className="row small muted">
           <span>Зарегистрировано: {state.checkinList.length}</span>
           <span>Чек-ин: {arrivedCount}</span>
+          {state.waitlist.length > 0 && <span>В очереди: {state.waitlist.length}</span>}
         </div>
       </div>
 
@@ -163,15 +232,21 @@ function CheckinPanel({
         </div>
       )}
 
+      {waitlistNotice && (
+        <div className="card small" style={{ marginBottom: 14, textAlign: "center", border: "1px solid #c9a227" }}>
+          {waitlistNotice}
+        </div>
+      )}
+
       {scanError && (
         <div className="small" style={{ color: "var(--danger)", marginBottom: 10 }}>
           {scanError}
         </div>
       )}
 
-      <div className="row" style={{ gap: 8, marginBottom: 14 }}>
+      <div className="row" style={{ gap: 8, marginBottom: walkinHits.length ? 6 : 14 }}>
         <input
-          placeholder="Имя нового игрока"
+          placeholder="Имя игрока (найти или добавить нового)"
           value={walkinName}
           onChange={(e) => setWalkinName(e.target.value)}
           onKeyDown={(e) => {
@@ -181,18 +256,35 @@ function CheckinPanel({
         />
         <button
           className="btn btn-secondary"
-          style={{ width: "auto", padding: "6px 14px" }}
+          style={{ width: "auto", padding: "6px 14px", whiteSpace: "nowrap" }}
           disabled={busy || walkinBusy || !walkinName.trim()}
           onClick={handleWalkin}
         >
-          + Добавить
+          + Новый
         </button>
       </div>
 
+      {walkinHits.length > 0 && (
+        <div className="row-list" style={{ marginBottom: 14 }}>
+          {walkinHits.map((hit) => (
+            <div className="row-item" key={hit.id}>
+              <span>
+                {initials(hit.nickname)} {hit.nickname}
+              </span>
+              <button
+                className="btn btn-primary"
+                style={{ width: "auto", padding: "4px 10px", fontSize: 12 }}
+                disabled={busy || walkinBusy}
+                onClick={() => handlePickExisting(hit)}
+              >
+                Добавить в турнир
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="row" style={{ gap: 8, marginBottom: 14 }}>
-        <button className="btn btn-secondary" disabled={busy} onClick={() => onAction("/checkin-all")}>
-          ✓ Отметить всех
-        </button>
         <button className="btn btn-primary" disabled={busy} onClick={() => setScanning(true)}>
           📷 Сканировать QR
         </button>
@@ -230,6 +322,29 @@ function CheckinPanel({
           );
         })}
       </div>
+
+      {state.waitlist.length > 0 && (
+        <>
+          <strong className="small muted">ОЧЕРЕДЬ ОЖИДАНИЯ ({state.waitlist.length})</strong>
+          <div className="row-list" style={{ marginTop: 10, marginBottom: 14 }}>
+            {state.waitlist.map((w, i) => (
+              <div className="row-item" key={w.playerId}>
+                <span>
+                  {i + 1}. {w.nickname}
+                </span>
+                <button
+                  className="btn btn-secondary"
+                  style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}
+                  disabled={busy || walkinBusy}
+                  onClick={() => handlePromote(w.playerId)}
+                >
+                  Добавить в турнир
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <SeatingDraft state={state} busy={busy} onAction={onAction} />
 
@@ -543,6 +658,7 @@ function RunningConsole({
                 eliminator={eliminator[seat.playerId] ?? ""}
                 onEliminatorChange={(v) => setEliminator((m) => ({ ...m, [seat.playerId]: v }))}
                 eliminatorOptions={allActive.filter((p) => p.playerId !== seat.playerId)}
+                defaultBountyPoints={state.tournament.rpsFormulaParams.knockoutPoints}
                 busy={busy}
                 onAction={onAction}
               />
@@ -579,7 +695,10 @@ function RunningConsole({
             <span>
               {e.place}. {e.nickname}
             </span>
-            <span className="small muted">{e.eliminatedByNickname ? `от ${e.eliminatedByNickname}` : ""}</span>
+            <span className="small muted">
+              {e.eliminatedByNickname ? `от ${e.eliminatedByNickname}` : ""}
+              {e.eliminatedByNickname && e.bountyPoints ? ` · +${e.bountyPoints} рейтинга` : ""}
+            </span>
           </div>
         ))}
         {state.eliminations.length === 0 && <div className="small muted">Пока никто не выбыл</div>}
@@ -669,6 +788,7 @@ function SeatRow({
   eliminator,
   onEliminatorChange,
   eliminatorOptions,
+  defaultBountyPoints,
   busy,
   onAction,
 }: {
@@ -677,12 +797,14 @@ function SeatRow({
   eliminator: string;
   onEliminatorChange: (v: string) => void;
   eliminatorOptions: { playerId: string; nickname: string }[];
+  defaultBountyPoints: number;
   busy: boolean;
   onAction: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [stackInput, setStackInput] = useState(String(seat.currentStack ?? ""));
   const [moving, setMoving] = useState(false);
   const [target, setTarget] = useState("");
+  const [bountyPoints, setBountyPoints] = useState(String(defaultBountyPoints));
 
   useEffect(() => setStackInput(String(seat.currentStack ?? "")), [seat.currentStack]);
 
@@ -740,11 +862,48 @@ function SeatRow({
           className="btn btn-danger"
           style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}
           disabled={busy}
-          onClick={() => onAction("/knockout", { eliminatedPlayerId: seat.playerId, eliminatedByPlayerId: eliminator || null })}
+          onClick={() =>
+            onAction("/knockout", {
+              eliminatedPlayerId: seat.playerId,
+              eliminatedByPlayerId: eliminator || null,
+              bountyPoints: eliminator ? Math.max(0, Math.round(Number(bountyPoints)) || 0) : undefined,
+            })
+          }
         >
           💀
         </button>
       </div>
+
+      {eliminator && (
+        <div className="row" style={{ gap: 6, width: "100%", marginTop: 6, alignItems: "center" }}>
+          <span className="small muted">Очков рейтинга за нокаут:</span>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ width: "auto", padding: "4px 8px", fontSize: 11 }}
+            disabled={busy}
+            onClick={() => setBountyPoints("50")}
+          >
+            50
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ width: "auto", padding: "4px 8px", fontSize: 11 }}
+            disabled={busy}
+            onClick={() => setBountyPoints("100")}
+          >
+            100
+          </button>
+          <input
+            value={bountyPoints}
+            onChange={(e) => setBountyPoints(e.target.value)}
+            inputMode="numeric"
+            title="Своё количество очков"
+            style={{ ...seatInputStyle, width: 60 }}
+          />
+        </div>
+      )}
 
       {moving && (
         <div className="row" style={{ gap: 6, width: "100%", marginTop: 6 }}>

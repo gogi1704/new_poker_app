@@ -38,6 +38,7 @@ export const registrationStatusEnum = pgEnum("registration_status", [
   "active",
   "eliminated",
   "cancelled",
+  "waitlisted",
 ]);
 
 export const rebuyAddonTypeEnum = pgEnum("rebuy_addon_type", ["reentry", "addon"]);
@@ -370,6 +371,11 @@ export const knockouts = pgTable("knockouts", {
   eliminatedByPlayerId: uuid("eliminated_by_player_id").references(() => players.id, {
     onDelete: "set null",
   }),
+  // How many rating points this specific knockout is worth, set live by the
+  // TD (preset 50/100 or a custom number) when marking it. Null means "TD
+  // didn't set one" — standings.ts then falls back to the tournament's flat
+  // rpsFormulaParams.knockoutPoints default for this one knockout.
+  bountyPoints: integer("bounty_points"),
   levelNumber: integer("level_number").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

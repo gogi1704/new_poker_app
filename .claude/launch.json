@@ -24,6 +24,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@poker/web-td", "dev"],
       "port": 5174
+    },
+    {
+      "name": "offline-launcher-renderer-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "4173", "packages/offline-launcher/renderer"],
+      "port": 4173
     }
   ]
 }

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/client.js";
 import * as schema from "../db/schema.js";
 import type { TournamentExportData } from "./tournamentExport.js";
+import { upsertPlayerByTelegramId } from "./playerRoster.js";
 
 export interface TournamentImportResult {
   imported: boolean;
@@ -125,30 +126,12 @@ export async function importTournamentExport(
 
   const playerIdMap = new Map<string, string>();
   for (const p of players) {
-    const [existingPlayer] = await db.select().from(schema.players).where(eq(schema.players.telegramId, p.telegramId));
-    let player = existingPlayer;
-    if (!player) {
-      [player] = await db
-        .insert(schema.players)
-        .values({
-          telegramId: p.telegramId,
-          nickname: p.nickname,
-          avatarUrl: p.avatarUrl,
-          derivedEmail: p.telegramId.startsWith("local-")
-            ? `local_${crypto.randomUUID()}@local.user`
-            : `telegram_${p.telegramId}@telegram.user`,
-        })
-        .returning();
-    }
-    playerIdMap.set(p.localId, player.id);
-
-    const [membership] = await db
-      .select()
-      .from(schema.clubMemberships)
-      .where(and(eq(schema.clubMemberships.clubId, clubId), eq(schema.clubMemberships.playerId, player.id)));
-    if (!membership) {
-      await db.insert(schema.clubMemberships).values({ clubId, playerId: player.id, cardId: crypto.randomUUID() });
-    }
+    const playerId = await upsertPlayerByTelegramId(db, clubId, {
+      telegramId: p.telegramId,
+      nickname: p.nickname,
+      avatarUrl: p.avatarUrl,
+    });
+    playerIdMap.set(p.localId, playerId);
   }
 
   const tournamentValues = {
@@ -278,6 +261,10 @@ export async function importTournamentExport(
         tournamentId: newTournament.id,
         eliminatedPlayerId: playerIdMap.get(k.eliminatedPlayerId)!,
         eliminatedByPlayerId: k.eliminatedByPlayerId ? playerIdMap.get(k.eliminatedByPlayerId)! : null,
+        // Older export files (before per-knockout bounty points existed)
+        // simply don't have this field — tolerated as "no override", same
+        // as a knockout marked today without picking a custom amount.
+        bountyPoints: k.bountyPoints ?? null,
         levelNumber: k.levelNumber,
         createdAt: new Date(k.createdAt),
       })),

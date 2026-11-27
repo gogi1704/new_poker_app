@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { and, asc, eq, ne, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -7,7 +7,7 @@ import { schema } from "@poker/shared";
 import { getDefaultClub } from "../services/club.js";
 import { requireStaff } from "../services/staff.js";
 import { publishTournamentUpdate } from "../services/realtime.js";
-import { checkInAndSeat } from "../services/checkin.js";
+import { checkInAndSeat, type SeatResult } from "../services/checkin.js";
 
 type RegisterResult = { ok: true; status: string } | { ok: false; code: number; error: string };
 
@@ -41,22 +41,53 @@ async function registerPlayerInTournament(
   const [{ seatsFilled }] = await fastify.db
     .select({ seatsFilled: sql<number>`count(*)` })
     .from(schema.registrations)
-    .where(and(eq(schema.registrations.tournamentId, tournamentId), ne(schema.registrations.status, "cancelled")));
-  if (Number(seatsFilled) >= tournament.maxSeats) {
-    return { ok: false, code: 409, error: "tournament is full" };
-  }
+    .where(
+      and(
+        eq(schema.registrations.tournamentId, tournamentId),
+        notInArray(schema.registrations.status, ["cancelled", "waitlisted"]),
+      ),
+    );
+
+  // Full tournament doesn't reject registration any more — it joins the
+  // waitlist, same as the player-facing self-service path in tournaments.ts.
+  const status = Number(seatsFilled) >= tournament.maxSeats ? "waitlisted" : "registered";
 
   if (existing) {
     await fastify.db
       .update(schema.registrations)
-      .set({ status: "registered", registeredAt: new Date() })
+      .set({ status, registeredAt: new Date() })
       .where(eq(schema.registrations.id, existing.id));
   } else {
-    await fastify.db.insert(schema.registrations).values({ tournamentId, playerId });
+    await fastify.db.insert(schema.registrations).values({ tournamentId, playerId, status });
   }
 
   publishTournamentUpdate(tournamentId);
-  return { ok: true, status: "registered" };
+  return { ok: true, status };
+}
+
+type RegisterAndSeatResult = { ok: true; status: string; seat: SeatResult | null } | { ok: false; code: number; error: string };
+
+// Shared tail for the check-in desk: once we know a playerId — a brand-new
+// walk-in, or an existing bot user found by nickname (see
+// register-existing below) — register them for this tournament and
+// immediately check them in. Either way they're standing at the desk right
+// now, so there's no "register now, check in later" step the way there can
+// be for a pre-event online registration.
+async function registerAndSeat(
+  fastify: FastifyInstance,
+  clubId: string,
+  tournamentId: string,
+  playerId: string,
+): Promise<RegisterAndSeatResult> {
+  const result = await registerPlayerInTournament(fastify, clubId, tournamentId, playerId);
+  if (!result.ok) return result;
+  // Waitlisted means the tournament is already at capacity — nothing to seat
+  // them at yet. The TD can promote them from the waitlist once a spot opens.
+  if (result.status === "waitlisted") return { ok: true, status: result.status, seat: null };
+
+  const [tournament] = await fastify.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, tournamentId));
+  const seat = tournament ? await checkInAndSeat(fastify.db, tournamentId, tournament, playerId) : null;
+  return { ok: true, status: result.status, seat };
 }
 
 /**
@@ -157,19 +188,41 @@ export default async function tdScanRoutes(fastify: FastifyInstance) {
       .values({ clubId: club.id, playerId: player.id, cardId: randomUUID() })
       .onConflictDoNothing();
 
-    const result = await registerPlayerInTournament(fastify, club.id, id, player.id);
-    if (!result.ok) return reply.code(result.code).send({ error: result.error });
-
-    // A walk-in is by definition already standing at the desk — check them
-    // in and seat them in the same step instead of making the TD tap
-    // "Отметить" separately, and hand back the table/box right away.
-    const [tournament] = await fastify.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id));
-    const seat = tournament ? await checkInAndSeat(fastify.db, id, tournament, player.id) : null;
+    const outcome = await registerAndSeat(fastify, club.id, id, player.id);
+    if (!outcome.ok) return reply.code(outcome.code).send({ error: outcome.error });
 
     return {
       player: { id: player.id, nickname: player.nickname, avatarUrl: player.avatarUrl },
-      status: result.status,
-      seat,
+      status: outcome.status,
+      seat: outcome.seat,
+    };
+  });
+
+  // Offline/at-the-desk alternative to a brand-new walk-in: the person is an
+  // EXISTING bot user (found via /api/td/players/search by nickname — on the
+  // offline launcher this searches the full roster mirrored onto the laptop,
+  // see playerRoster.ts) who just wasn't pre-registered for this tournament
+  // online. Registers and seats them in one step, exactly like a walk-in,
+  // but without creating a duplicate synthetic identity for someone who
+  // already has a real one.
+  fastify.post("/api/td/tournaments/:id/register-existing", async (request, reply) => {
+    const club = await getDefaultClub(fastify.db);
+    const staff = await requireStaff(request, reply, fastify.db, club.id);
+    if (!staff) return;
+
+    const { id } = request.params as { id: string };
+    const { playerId } = z.object({ playerId: z.string().uuid() }).parse(request.body);
+
+    const [player] = await fastify.db.select().from(schema.players).where(eq(schema.players.id, playerId));
+    if (!player) return reply.code(404).send({ error: "player not found" });
+
+    const outcome = await registerAndSeat(fastify, club.id, id, playerId);
+    if (!outcome.ok) return reply.code(outcome.code).send({ error: outcome.error });
+
+    return {
+      player: { id: player.id, nickname: player.nickname, avatarUrl: player.avatarUrl },
+      status: outcome.status,
+      seat: outcome.seat,
     };
   });
 }

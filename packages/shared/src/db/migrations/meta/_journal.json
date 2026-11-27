@@ -57,6 +57,20 @@
       "when": 1794869734653,
       "tag": "0007_premium_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795778427422,
+      "tag": "0008_tearful_wong",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795780447954,
+      "tag": "0009_mixed_mastermind",
+      "breakpoints": true
     }
   ]
 }

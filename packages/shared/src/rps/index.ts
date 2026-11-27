@@ -7,19 +7,20 @@ export interface RpsFormulaParams {
 /**
  * Approximate RPS scoring — not a reverse-engineered reproduction of any
  * specific club's numbers, just a reasonable, tunable default:
- * better placement in a bigger field is worth more, each knockout adds a flat bonus.
+ * better placement in a bigger field is worth more, knockouts add their
+ * recorded bounty on top (see knockoutBounty — each knockout can carry its
+ * own TD-set point value, not just a flat per-tournament rate).
  */
 export function calculateRps(args: {
   place: number;
   fieldSize: number;
-  knockouts: number;
+  knockoutBounty: number;
   params: RpsFormulaParams;
 }): number {
-  const { place, fieldSize, knockouts, params } = args;
+  const { place, fieldSize, knockoutBounty, params } = args;
   if (fieldSize <= 0) return 0;
   const placementScore = Math.round(100 * (1 - (place - 1) / fieldSize) * (params.placementWeight ?? 1));
-  const knockoutScore = knockouts * params.knockoutPoints;
-  return Math.max(0, placementScore) + knockoutScore;
+  return Math.max(0, placementScore) + knockoutBounty;
 }
 
 export interface RankTier {

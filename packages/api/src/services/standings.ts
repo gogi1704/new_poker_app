@@ -43,6 +43,7 @@ export async function computeFinalStandings(db: Database, tournamentId: string):
     .select({
       eliminatedPlayerId: schema.knockouts.eliminatedPlayerId,
       eliminatedByPlayerId: schema.knockouts.eliminatedByPlayerId,
+      bountyPoints: schema.knockouts.bountyPoints,
       createdAt: schema.knockouts.createdAt,
     })
     .from(schema.knockouts)
@@ -52,22 +53,32 @@ export async function computeFinalStandings(db: Database, tournamentId: string):
   const fieldSize = activePlayers.length + knockoutRows.length;
   const nicknameByPlayerId = new Map(registrations.map((r) => [r.playerId, r.nickname]));
 
+  const params = tournament.rpsFormulaParams;
+  // Each knockout carries its own bounty (set live by the TD — preset 50/100
+  // or a custom amount); one that was never given a value falls back to the
+  // tournament's flat default, same as every knockout used to be worth
+  // before per-knockout bounties existed.
   const knockoutsByPlayer = new Map<string, number>();
+  const bountyByPlayer = new Map<string, number>();
   for (const k of knockoutRows) {
     if (!k.eliminatedByPlayerId) continue;
     knockoutsByPlayer.set(k.eliminatedByPlayerId, (knockoutsByPlayer.get(k.eliminatedByPlayerId) ?? 0) + 1);
+    bountyByPlayer.set(
+      k.eliminatedByPlayerId,
+      (bountyByPlayer.get(k.eliminatedByPlayerId) ?? 0) + (k.bountyPoints ?? params.knockoutPoints),
+    );
   }
 
-  const params = tournament.rpsFormulaParams;
   const rowFor = (playerId: string, place: number): FinalStandingRow => {
     const knockoutsCount = knockoutsByPlayer.get(playerId) ?? 0;
+    const bountyPoints = bountyByPlayer.get(playerId) ?? 0;
     return {
       playerId,
       nickname: nicknameByPlayerId.get(playerId) ?? "?",
       place,
       knockoutsCount,
-      bountyPoints: knockoutsCount * params.knockoutPoints,
-      rpsAwarded: calculateRps({ place, fieldSize, knockouts: knockoutsCount, params }),
+      bountyPoints,
+      rpsAwarded: calculateRps({ place, fieldSize, knockoutBounty: bountyPoints, params }),
     };
   };
 

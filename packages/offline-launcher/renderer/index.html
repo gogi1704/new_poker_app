@@ -11,47 +11,54 @@
       <p class="subtitle">Локальный стек для турниров без интернета</p>
     </header>
 
-    <div id="network-banner" class="banner hidden">
-      <span id="network-banner-text"></span>
-      <div class="banner-actions">
-        <button id="network-banner-action">Открыть панель</button>
-        <button id="network-banner-dismiss">Понятно</button>
+    <section id="status-bar" class="status-bar">
+      <div class="status-main">
+        <span id="status-dot" class="status-dot status-dot-unknown"></span>
+        <div>
+          <div id="status-title" class="status-title">Проверяю сеть…</div>
+          <div id="status-detail" class="status-detail">—</div>
+        </div>
       </div>
-    </div>
-
-    <section class="card">
-      <div class="row">
-        <span class="label">Папка проекта</span>
-        <span id="repo-path" class="value">не выбрана</span>
-        <button id="pick-repo">Выбрать папку</button>
-      </div>
-      <div class="row">
-        <span class="label">Docker</span>
-        <span id="docker-pill" class="pill pill-unknown">проверяю…</span>
-        <span class="label">Стек</span>
-        <span id="stack-pill" class="pill pill-unknown">проверяю…</span>
-        <button id="refresh">Обновить статус</button>
+      <div class="status-actions">
+        <button id="btn-status-resume" class="hidden">Ничего не менялось, продолжить</button>
+        <button id="btn-status-push" class="primary hidden">⬆ Выгрузить в облако</button>
+        <button id="btn-status-open" class="hidden">Открыть локальную панель</button>
       </div>
     </section>
 
-    <section class="card actions">
-      <input id="admin-password" type="text" placeholder="Пароль для входа в панель" />
-      <button id="btn-setup" class="primary">Настроить (разово)</button>
-      <button id="btn-start">Запустить</button>
-      <button id="btn-stop">Остановить</button>
-      <button id="btn-open">Открыть панель</button>
-    </section>
-    <p class="hint">
-      Пароль задаётся/меняется каждый раз, когда нажимаешь «Настроить» с заполненным полем.
-      Оставь поле пустым, если просто хочешь пересобрать стек без изменения пароля.
-    </p>
+    <details id="setup-details" class="card">
+      <summary>⚙ Настройка стека (разово)</summary>
+      <div class="details-body">
+        <div class="row">
+          <span class="label">Папка проекта</span>
+          <span id="repo-path" class="value">не выбрана</span>
+          <button id="pick-repo">Выбрать папку</button>
+        </div>
+        <div class="row">
+          <span class="label">Docker</span>
+          <span id="docker-pill" class="pill pill-unknown">проверяю…</span>
+          <span class="label">Стек</span>
+          <span id="stack-pill" class="pill pill-unknown">проверяю…</span>
+          <button id="refresh">Обновить статус</button>
+        </div>
+        <div class="row actions">
+          <button id="btn-setup" class="primary">Настроить / пересобрать</button>
+          <button id="btn-start">Запустить</button>
+          <button id="btn-stop">Остановить</button>
+          <button id="btn-open">Открыть панель</button>
+        </div>
+        <p class="hint">Вход в локальную панель — без пароля, он не нужен в офлайн-режиме.</p>
+
+        <div class="label">Адреса для других устройств (телефон TD, табло):</div>
+        <ul id="lan-list" class="lan-list"><li class="muted">—</li></ul>
+      </div>
+    </details>
 
     <section class="card">
-      <div class="label">Облачная синхронизация турнира (авто, пока есть сеть)</div>
+      <div class="label">Облачная синхронизация турнира</div>
       <div class="row">
         <input id="cloud-url" type="text" placeholder="https://poker-td...sslip.io" />
         <input id="cloud-password" type="password" placeholder="Пароль облачной панели" />
-        <input id="local-password" type="password" placeholder="Пароль локальной панели" />
         <button id="btn-cloud-connect">Подключиться</button>
       </div>
       <div class="row">
@@ -59,25 +66,22 @@
         <select id="tracked-tournament"><option value="">—</option></select>
       </div>
       <div class="row">
-        <span id="sync-status" class="label">не настроено</span>
-        <button id="btn-sync-pull">Синхронизировать из облака сейчас</button>
+        <button id="btn-sync-pull">Синхронизировать из облака</button>
         <button id="btn-sync-push">Выгрузить в облако</button>
       </div>
       <p class="hint">
-        Пока есть интернет, локальный стек сам раз в минуту подтягивает выбранный турнир из облака.
-        Когда сеть пропадёт — продолжай вести его в локальной панели. Когда вернётся — жми «Выгрузить в облако».
+        Пока есть интернет, раз в минуту сами обновляются: список игроков клуба (весь, не только
+        записавшиеся на этот турнир — чтобы на чек-ине можно было найти по нику любого, кто уже открывал
+        бота) и выбранный ниже турнир. Это подстраховка на случай, если сеть пропадёт. Турнир веди как
+        обычно в облачной панели; если сеть пропала — переключайся на локальную (кнопка выше), а когда
+        вернётся — выгружай результаты обратно.
       </p>
     </section>
 
-    <section class="card">
-      <div class="label">Адреса для других устройств (телефон TD, табло):</div>
-      <ul id="lan-list" class="lan-list"><li class="muted">—</li></ul>
-    </section>
-
-    <section class="card log-card">
-      <div class="label">Журнал</div>
+    <details class="card log-card">
+      <summary>Журнал</summary>
       <pre id="log"></pre>
-    </section>
+    </details>
 
     <script src="renderer.js"></script>
   </body>

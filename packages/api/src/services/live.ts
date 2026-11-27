@@ -33,6 +33,7 @@ export async function buildLiveState(db: Database, tournamentId: string) {
           seatTableId: schema.registrations.seatTableId,
           seatNo: schema.registrations.seatNo,
           currentStack: schema.registrations.currentStack,
+          registeredAt: schema.registrations.registeredAt,
           nickname: schema.players.nickname,
           avatarUrl: schema.players.avatarUrl,
         })
@@ -48,6 +49,7 @@ export async function buildLiveState(db: Database, tournamentId: string) {
         .select({
           eliminatedPlayerId: schema.knockouts.eliminatedPlayerId,
           eliminatedByPlayerId: schema.knockouts.eliminatedByPlayerId,
+          bountyPoints: schema.knockouts.bountyPoints,
           levelNumber: schema.knockouts.levelNumber,
           createdAt: schema.knockouts.createdAt,
         })
@@ -105,11 +107,17 @@ export async function buildLiveState(db: Database, tournamentId: string) {
   const eliminatedCount = registrations.filter((r) => r.status === "eliminated").length;
   const fieldSize = activeCount + eliminatedCount;
 
+  const waitlist = registrations
+    .filter((r) => r.status === "waitlisted")
+    .sort((a, b) => new Date(a.registeredAt).getTime() - new Date(b.registeredAt).getTime())
+    .map((r) => ({ playerId: r.playerId, nickname: r.nickname }));
+
   const nicknameByPlayerId = new Map(registrations.map((r) => [r.playerId, r.nickname]));
   const eliminations = knockoutRows.map((k, i) => ({
     playerId: k.eliminatedPlayerId,
     nickname: nicknameByPlayerId.get(k.eliminatedPlayerId) ?? "?",
     eliminatedByNickname: k.eliminatedByPlayerId ? (nicknameByPlayerId.get(k.eliminatedByPlayerId) ?? null) : null,
+    bountyPoints: k.bountyPoints,
     place: fieldSize - i,
     levelNumber: k.levelNumber,
     at: k.createdAt,
@@ -163,9 +171,17 @@ export async function buildLiveState(db: Database, tournamentId: string) {
       reentryPrice: tournament.reentryPrice,
       addonPrice: tournament.addonPrice,
       addonStack: tournament.addonStack,
+      rpsFormulaParams: tournament.rpsFormulaParams,
     },
     clock,
-    counts: { checkedIn, active: activeCount, eliminated: eliminatedCount, fieldSize, tablesActive: tables.length },
+    counts: {
+      checkedIn,
+      active: activeCount,
+      eliminated: eliminatedCount,
+      fieldSize,
+      tablesActive: tables.length,
+      waitlisted: waitlist.length,
+    },
     blindLevels: blindLevels.map((l) => ({
       levelNumber: l.levelNumber,
       smallBlind: l.smallBlind,
@@ -177,6 +193,7 @@ export async function buildLiveState(db: Database, tournamentId: string) {
     tables,
     eliminations: eliminations.reverse(),
     checkinList,
+    waitlist,
     chipLeader: chipLeader ? { playerId: chipLeader.playerId, nickname: chipLeader.nickname, stack: chipLeader.currentStack! } : null,
     payoutPreview,
     announcement: getAnnouncement(tournamentId),
