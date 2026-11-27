@@ -15,19 +15,47 @@
       <div class="status-main">
         <span id="status-dot" class="status-dot status-dot-unknown"></span>
         <div>
-          <div id="status-title" class="status-title">Проверяю сеть…</div>
+          <div id="status-title" class="status-title">Проверяю…</div>
           <div id="status-detail" class="status-detail">—</div>
         </div>
       </div>
       <div class="status-actions">
+        <button id="btn-pick-repo" class="primary hidden">Выбрать папку проекта</button>
+        <button id="btn-recheck" class="hidden">Проверить снова</button>
+        <button id="btn-smart-start" class="primary hidden">▶ Запустить</button>
         <button id="btn-status-resume" class="hidden">Ничего не менялось, продолжить</button>
         <button id="btn-status-push" class="primary hidden">⬆ Выгрузить в облако</button>
-        <button id="btn-status-open" class="hidden">Открыть локальную панель</button>
+        <button id="btn-status-open" class="hidden">Открыть панель</button>
+        <button id="btn-status-stop" class="hidden">Остановить</button>
       </div>
     </section>
 
-    <details id="setup-details" class="card">
-      <summary>⚙ Настройка стека (разово)</summary>
+    <section class="card">
+      <div class="label">Облачная синхронизация турнира</div>
+      <p class="hint" style="margin-top: -2px">
+        Подключи это <strong>до первого запуска</strong> — тогда локальный клуб настроится так, чтобы
+        вход в панель не слетал при переключении офлайн/онлайн (единый адрес выше). Если уже запускал
+        без этого — ничего страшного, просто единый адрес будет работать без автопереключения, и панель
+        останется на отдельном локальном адресе (см. «Диагностика» ниже).
+      </p>
+      <div class="row">
+        <input id="cloud-url" type="text" placeholder="https://poker-td...sslip.io" />
+        <input id="cloud-password" type="password" placeholder="Пароль облачной панели" />
+        <button id="btn-cloud-connect">Подключиться</button>
+      </div>
+      <div class="row">
+        <span class="label">Турнир для синка</span>
+        <select id="tracked-tournament"><option value="">—</option></select>
+      </div>
+      <p class="hint">
+        Дальше всё само: пока есть интернет, раз в минуту обновляются список игроков клуба (весь, не
+        только записавшиеся на этот турнир) и выбранный турнир. Если сеть пропадёт — статус выше сам
+        покажет, что делать.
+      </p>
+    </section>
+
+    <details class="card">
+      <summary>Диагностика и расширенные действия</summary>
       <div class="details-body">
         <div class="row">
           <span class="label">Папка проекта</span>
@@ -42,41 +70,21 @@
           <button id="refresh">Обновить статус</button>
         </div>
         <div class="row actions">
-          <button id="btn-setup" class="primary">Настроить / пересобрать</button>
-          <button id="btn-start">Запустить</button>
+          <button id="btn-setup" class="primary">Настроить / пересобрать заново</button>
+          <button id="btn-start">Запустить (без пересборки)</button>
           <button id="btn-stop">Остановить</button>
           <button id="btn-open">Открыть панель</button>
         </div>
-        <p class="hint">Вход в локальную панель — без пароля, он не нужен в офлайн-режиме.</p>
+        <p class="hint">
+          Обычно всё это не нужно — используй кнопку в статусе выше. Сюда — если что-то пошло не так и
+          нужно пересобрать образы заново, либо для ручной диагностики. Вход в панель — без пароля, он
+          не нужен в офлайн-режиме.
+        </p>
 
         <div class="label">Адреса для других устройств (телефон TD, табло):</div>
         <ul id="lan-list" class="lan-list"><li class="muted">—</li></ul>
       </div>
     </details>
-
-    <section class="card">
-      <div class="label">Облачная синхронизация турнира</div>
-      <div class="row">
-        <input id="cloud-url" type="text" placeholder="https://poker-td...sslip.io" />
-        <input id="cloud-password" type="password" placeholder="Пароль облачной панели" />
-        <button id="btn-cloud-connect">Подключиться</button>
-      </div>
-      <div class="row">
-        <span class="label">Турнир для синка</span>
-        <select id="tracked-tournament"><option value="">—</option></select>
-      </div>
-      <div class="row">
-        <button id="btn-sync-pull">Синхронизировать из облака</button>
-        <button id="btn-sync-push">Выгрузить в облако</button>
-      </div>
-      <p class="hint">
-        Пока есть интернет, раз в минуту сами обновляются: список игроков клуба (весь, не только
-        записавшиеся на этот турнир — чтобы на чек-ине можно было найти по нику любого, кто уже открывал
-        бота) и выбранный ниже турнир. Это подстраховка на случай, если сеть пропадёт. Турнир веди как
-        обычно в облачной панели; если сеть пропала — переключайся на локальную (кнопка выше), а когда
-        вернётся — выгружай результаты обратно.
-      </p>
-    </section>
 
     <details class="card log-card">
       <summary>Журнал</summary>

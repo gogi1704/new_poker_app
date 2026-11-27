@@ -75,6 +75,7 @@ async function mirrorImportTournament(baseUrl: string, password: string, data: u
 }
 
 interface ClubSettings {
+  id: string;
   name: string;
   logoUrl: string | null;
   boardSettings: unknown;
@@ -118,6 +119,22 @@ async function importPlayerRosterRemote(baseUrl: string, password: string, roste
 export interface SyncOutcome {
   summary: string;
   localTournamentId?: string;
+}
+
+// Used once, by main.ts's run-setup handler, to pass the cloud club's id
+// through to `local:init-club` so the local club row is created under the
+// SAME id (see initLocalClub.ts) — the identity-unification step the
+// single-address proxy depends on. Returns null (never throws) whenever
+// cloud sync isn't configured yet or the cloud is unreachable right now —
+// setup must still proceed without it in that case.
+export async function getCloudClubId(config: LauncherConfig): Promise<string | null> {
+  if (!config.cloudApiUrl || !config.cloudAdminPassword) return null;
+  try {
+    const club = await getClubSettings(config.cloudApiUrl, config.cloudAdminPassword);
+    return club.id;
+  } catch {
+    return null;
+  }
 }
 
 // The local deployment has DISABLE_ADMIN_AUTH=true (docker-compose.local.yml)

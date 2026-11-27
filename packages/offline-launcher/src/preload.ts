@@ -24,10 +24,12 @@ contextBridge.exposeInMainWorld("launcher", {
   dockerStatus: () => ipcRenderer.invoke("docker-status"),
   stackStatus: () => ipcRenderer.invoke("stack-status"),
   getLanIps: () => ipcRenderer.invoke("get-lan-ips"),
+  getProxyPort: () => ipcRenderer.invoke("get-proxy-port"),
   openPanel: () => ipcRenderer.invoke("open-panel"),
   runSetup: () => ipcRenderer.invoke("run-setup"),
   runStart: () => ipcRenderer.invoke("run-start"),
   runStop: () => ipcRenderer.invoke("run-stop"),
+  smartStart: () => ipcRenderer.invoke("smart-start"),
   cloudListTournaments: (cloudApiUrl: string, cloudAdminPassword: string) =>
     ipcRenderer.invoke("cloud-list-tournaments", cloudApiUrl, cloudAdminPassword),
   selectTrackedTournament: (id: string, name: string) =>

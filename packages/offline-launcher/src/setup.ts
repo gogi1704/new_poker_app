@@ -33,7 +33,10 @@ async function waitForPostgresHealthy(repoPath: string, log: LogSink): Promise<b
 // The full one-time setup from docs/OFFLINE.md, scripted end to end. Safe to
 // re-run any time (every step it drives is already idempotent on its own —
 // build, up -d, migrate, init-club) so this doubles as "re-check everything".
-export async function runSetup(repoPath: string, log: LogSink): Promise<boolean> {
+// cloudClubId (resolved by main.ts via sync.ts's getCloudClubId, when cloud
+// sync is already connected) is passed through to init-club so the local
+// club row shares the cloud club's id — see initLocalClub.ts.
+export async function runSetup(repoPath: string, log: LogSink, cloudClubId?: string): Promise<boolean> {
   ensureEnvFile(repoPath, log);
 
   log("\n[launcher] Собираю образы (может занять несколько минут)...\n");
@@ -71,7 +74,12 @@ export async function runSetup(repoPath: string, log: LogSink): Promise<boolean>
   }
 
   log("\n[launcher] Создаю клуб (если ещё не создан)...\n");
-  const initClub = await runCommand("pnpm", ["--filter", "@poker/api", "local:init-club"], { cwd: repoPath }, log);
+  const initClub = await runCommand(
+    "pnpm",
+    ["--filter", "@poker/api", "local:init-club", ...(cloudClubId ? ["--", cloudClubId] : [])],
+    { cwd: repoPath },
+    log,
+  );
   if (initClub.code !== 0) {
     log("\n[launcher] Не удалось создать клуб.\n");
     return false;

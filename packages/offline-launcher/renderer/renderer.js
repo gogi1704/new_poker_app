@@ -3,7 +3,6 @@ const dockerPillEl = document.getElementById("docker-pill");
 const stackPillEl = document.getElementById("stack-pill");
 const lanListEl = document.getElementById("lan-list");
 const logEl = document.getElementById("log");
-const setupDetailsEl = document.getElementById("setup-details");
 
 const pickRepoBtn = document.getElementById("pick-repo");
 const refreshBtn = document.getElementById("refresh");
@@ -12,7 +11,36 @@ const startBtn = document.getElementById("btn-start");
 const stopBtn = document.getElementById("btn-stop");
 const openBtn = document.getElementById("btn-open");
 
-const actionButtons = [pickRepoBtn, setupBtn, startBtn, stopBtn, openBtn];
+// ---- single status + action area ---------------------------------------
+// One readout, one primary action at a time — the TD should never have to
+// combine several pills/buttons to know "is everything OK, what do I press
+// next". Priority, highest first: pick a project folder -> Docker must be
+// running -> the stack must be started -> (once running) network/sync
+// state, same logic as before. Whichever state applies shows exactly the
+// button(s) that make sense for it; "Открыть панель"/"Остановить" are
+// additionally shown any time the stack is actually running, on top of
+// whatever that state's own contextual buttons are.
+const statusDotEl = document.getElementById("status-dot");
+const statusTitleEl = document.getElementById("status-title");
+const statusDetailEl = document.getElementById("status-detail");
+const btnPickRepoStatus = document.getElementById("btn-pick-repo");
+const btnRecheck = document.getElementById("btn-recheck");
+const btnSmartStart = document.getElementById("btn-smart-start");
+const btnStatusResume = document.getElementById("btn-status-resume");
+const btnStatusPush = document.getElementById("btn-status-push");
+const btnStatusOpen = document.getElementById("btn-status-open");
+const btnStatusStop = document.getElementById("btn-status-stop");
+const statusActionButtons = [
+  btnPickRepoStatus,
+  btnRecheck,
+  btnSmartStart,
+  btnStatusResume,
+  btnStatusPush,
+  btnStatusOpen,
+  btnStatusStop,
+];
+
+const actionButtons = [pickRepoBtn, setupBtn, startBtn, stopBtn, openBtn, btnSmartStart, btnStatusStop, btnPickRepoStatus];
 
 function setPill(el, state, text) {
   el.className = "pill pill-" + state;
@@ -32,25 +60,12 @@ const cloudUrlEl = document.getElementById("cloud-url");
 const cloudPasswordEl = document.getElementById("cloud-password");
 const connectBtn = document.getElementById("btn-cloud-connect");
 const trackedSelectEl = document.getElementById("tracked-tournament");
-const syncPullBtn = document.getElementById("btn-sync-pull");
-const syncPushBtn = document.getElementById("btn-sync-push");
 
 let cloudTournaments = [];
 
-// ---- persistent status bar -------------------------------------------
-// Always-visible state (not a transient dismissible banner): is there a
-// route to the internet right now, is the automatic cloud pull paused
-// because we just came back from an offline stretch, and when did sync
-// last actually run. Driven by three sources: an explicit check on load
-// (the watcher only reports *changes*), the network-status IPC event, and
-// the sync-status IPC event.
-const statusDotEl = document.getElementById("status-dot");
-const statusTitleEl = document.getElementById("status-title");
-const statusDetailEl = document.getElementById("status-detail");
-const btnStatusResume = document.getElementById("btn-status-resume");
-const btnStatusPush = document.getElementById("btn-status-push");
-const btnStatusOpen = document.getElementById("btn-status-open");
-const statusActionButtons = [btnStatusResume, btnStatusPush, btnStatusOpen];
+let currentRepoPath = null;
+let dockerState = "unknown"; // "unknown" | "not-installed" | "not-running" | "running"
+let stackRunning = false;
 
 let netStatus = null; // "online" | "offline" | null (not checked yet)
 let pullSuspended = false;
@@ -74,11 +89,43 @@ function setStatusDot(state) {
 function renderStatus() {
   for (const btn of statusActionButtons) btn.classList.add("hidden");
 
+  if (!currentRepoPath) {
+    setStatusDot("unknown");
+    statusTitleEl.textContent = "📁 Выбери папку проекта";
+    statusDetailEl.textContent = "Папка с исходниками new_poker_app (там, где docker-compose.local.yml).";
+    btnPickRepoStatus.classList.remove("hidden");
+    return;
+  }
+
+  if (dockerState !== "running") {
+    setStatusDot(dockerState === "not-installed" ? "offline" : "warn");
+    statusTitleEl.textContent = dockerState === "not-installed" ? "🔴 Docker не установлен" : "🟡 Docker не запущен";
+    statusDetailEl.textContent =
+      dockerState === "not-installed"
+        ? "Нужен Docker Desktop — без него офлайн-режим не поднять."
+        : "Открой Docker Desktop и подожди, пока он запустится, потом нажми «Проверить снова».";
+    btnRecheck.classList.remove("hidden");
+    return;
+  }
+
+  if (!stackRunning) {
+    setStatusDot("unknown");
+    statusTitleEl.textContent = "⚪ Не запущено";
+    statusDetailEl.textContent =
+      "Нажми «Запустить» — при первом разе это настроит всё само (может занять несколько минут), в следующий раз будет быстро.";
+    btnSmartStart.classList.remove("hidden");
+    return;
+  }
+
+  // Stack is up from here on — always offer to open the panel / stop it,
+  // on top of whichever network/sync message below applies.
+  btnStatusOpen.classList.remove("hidden");
+  btnStatusStop.classList.remove("hidden");
+
   if (netStatus === "offline") {
     setStatusDot("offline");
     statusTitleEl.textContent = "🔴 Офлайн";
-    statusDetailEl.textContent = "Турнир ведётся локально. Открой локальную панель, если ещё не открыта.";
-    btnStatusOpen.classList.remove("hidden");
+    statusDetailEl.textContent = "Турнир ведётся локально через единый адрес — ничего больше делать не нужно.";
     return;
   }
 
@@ -125,7 +172,18 @@ function renderStatus() {
   statusDetailEl.textContent = `Турнир «${trackedName}» — синхронизировано ${formatAgo(lastSync.at)}`;
 }
 
+btnPickRepoStatus.addEventListener("click", async () => {
+  await window.launcher.pickRepoFolder();
+  await refreshAll();
+});
+
+btnRecheck.addEventListener("click", refreshAll);
+
+btnSmartStart.addEventListener("click", () => runGuarded(window.launcher.smartStart, "Запуск"));
+
 btnStatusOpen.addEventListener("click", () => window.launcher.openPanel());
+
+btnStatusStop.addEventListener("click", () => runGuarded(window.launcher.runStop, "Остановка"));
 
 btnStatusResume.addEventListener("click", async () => {
   await window.launcher.resumeAutoPull();
@@ -192,30 +250,25 @@ trackedSelectEl.addEventListener("change", async () => {
   await refreshSyncPanel();
 });
 
-syncPullBtn.addEventListener("click", () => runGuarded(window.launcher.syncPullNow, "Синхронизация из облака"));
-syncPushBtn.addEventListener("click", async () => {
-  await runGuarded(window.launcher.syncPushNow, "Выгрузка в облако");
-  pullSuspended = false;
-  renderStatus();
-});
-
-// ---- setup/status card --------------------------------------------------
+// ---- diagnostics/advanced card -------------------------------------------
 
 async function refreshRepo() {
   const config = await window.launcher.getConfig();
+  currentRepoPath = config.repoPath;
   repoPathEl.textContent = config.repoPath ?? "не выбрана";
   return config.repoPath;
 }
 
 async function refreshDocker() {
-  const status = await window.launcher.dockerStatus();
-  if (status === "running") setPill(dockerPillEl, "ok", "работает");
-  else if (status === "not-running") setPill(dockerPillEl, "warn", "не запущен");
+  dockerState = await window.launcher.dockerStatus();
+  if (dockerState === "running") setPill(dockerPillEl, "ok", "работает");
+  else if (dockerState === "not-running") setPill(dockerPillEl, "warn", "не запущен");
   else setPill(dockerPillEl, "bad", "не установлен");
 }
 
 async function refreshStack() {
   const services = await window.launcher.stackStatus();
+  stackRunning = services.length > 0;
   if (services.length === 0) {
     setPill(stackPillEl, "unknown", "остановлен");
     return;
@@ -226,7 +279,8 @@ async function refreshStack() {
 }
 
 async function refreshLan() {
-  const ips = await window.launcher.getLanIps();
+  const [ips, proxyPort] = await Promise.all([window.launcher.getLanIps(), window.launcher.getProxyPort()]);
+  const port = proxyPort || 8080;
   lanListEl.innerHTML = "";
   if (ips.length === 0) {
     lanListEl.innerHTML = '<li class="muted">не найдено (проверь Wi-Fi)</li>';
@@ -234,19 +288,14 @@ async function refreshLan() {
   }
   for (const ip of ips) {
     const li = document.createElement("li");
-    li.textContent = "http://" + ip + ":8080";
+    li.textContent = "http://" + ip + ":" + port;
     lanListEl.appendChild(li);
   }
 }
 
-let disclosureInitialized = false;
-
 async function refreshAll() {
-  const [repoPath] = await Promise.all([refreshRepo(), refreshDocker(), refreshStack(), refreshLan(), refreshSyncPanel()]);
-  if (!disclosureInitialized) {
-    disclosureInitialized = true;
-    setupDetailsEl.open = !repoPath;
-  }
+  await Promise.all([refreshRepo(), refreshDocker(), refreshStack(), refreshLan(), refreshSyncPanel()]);
+  renderStatus();
 }
 
 window.launcher.onLog((message) => {
@@ -278,13 +327,12 @@ stopBtn.addEventListener("click", () => runGuarded(window.launcher.runStop, "О�
 async function init() {
   netStatus = (await window.launcher.checkInternet()) ? "online" : "offline";
   pullSuspended = await window.launcher.isPullSuspended();
-  renderStatus();
   await refreshAll();
 }
 
 init();
-setInterval(() => {
-  refreshDocker();
-  refreshStack();
+setInterval(async () => {
+  await refreshDocker();
+  await refreshStack();
   renderStatus();
 }, 5000);

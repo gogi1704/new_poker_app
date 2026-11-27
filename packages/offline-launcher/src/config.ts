@@ -14,6 +14,11 @@ export interface LauncherConfig {
   // independent ids, so this is what lets a later push-back know which
   // local tournament to export.
   localTournamentId: string | null;
+  // True once the (slow — build + migrate + init-club) one-time setup has
+  // completed successfully. Lets the single "Запустить" action skip
+  // straight to a plain `up -d` on every later launch instead of redoing
+  // setup's heavy steps every time.
+  setupDone: boolean;
 }
 
 const DEFAULT_CONFIG: LauncherConfig = {
@@ -23,6 +28,7 @@ const DEFAULT_CONFIG: LauncherConfig = {
   trackedTournamentId: null,
   trackedTournamentName: null,
   localTournamentId: null,
+  setupDone: false,
 };
 
 function configPath(): string {

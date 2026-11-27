@@ -15,6 +15,15 @@ import { createDb, schema } from "@poker/shared";
 const connectionString = process.env.LOCAL_DATABASE_URL ?? "postgresql://pokerclub:pokerclub@localhost:5432/pokerclub";
 const db = createDb(connectionString);
 
+// Optional explicit id (a UUID), passed by the offline-launcher when cloud
+// sync is already connected — see docs/OFFLINE.md and Phase 14 of the plan.
+// Giving the local club row the SAME id as its cloud counterpart is what
+// lets an admin-password session/JWT minted by either backend validate
+// against the other (requireStaff checks the JWT's embedded club id against
+// this row's own id) — a prerequisite for the single-address proxy, not
+// something this script enforces or checks on its own.
+const explicitId = process.argv[2];
+
 async function main() {
   const [existing] = await db.select().from(schema.clubs).limit(1);
   if (existing) {
@@ -23,7 +32,7 @@ async function main() {
   }
   const [club] = await db
     .insert(schema.clubs)
-    .values({ name: "Мой Покер Клуб", timezone: "Europe/Moscow" })
+    .values({ ...(explicitId ? { id: explicitId } : {}), name: "Мой Покер Клуб", timezone: "Europe/Moscow" })
     .returning();
   console.log(`Created local club: ${club.name} (${club.id})`);
   console.log("Next: open http://localhost:8080 — no login needed in offline mode.");

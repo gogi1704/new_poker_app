@@ -119,7 +119,8 @@ export default async function tdTournamentsRoutes(fastify: FastifyInstance) {
 
   // Owner-only: the "Загрузить из файла" button — the other end of the
   // pre-event sync above. Re-run-safe: updates (not duplicates) a local
-  // tournament that hasn't started yet, matched by name + scheduledAt.
+  // tournament that hasn't started yet, matched by the source tournament's
+  // own id (preserved across sync/mirror imports — see tournamentImport.ts).
   fastify.post("/api/td/tournaments/import", async (request, reply) => {
     const club = await getDefaultClub(fastify.db);
     const owner = await requireOwner(request, reply, fastify.db, club.id);

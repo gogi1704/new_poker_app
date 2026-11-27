@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { loadConfig, looksLikeRepo, saveConfig } from "./config";
 import { checkDockerStatus, composeStatus, runCommand, streamTo } from "./docker";
 import { checkInternet, startNetworkWatcher } from "./network";
+import { startProxyServer } from "./proxyServer";
 import { runSetup } from "./setup";
-import { listCloudTournaments, pullFromCloud, pullRosterAndClub, pushToCloud } from "./sync";
+import { getCloudClubId, listCloudTournaments, pullFromCloud, pullRosterAndClub, pushToCloud } from "./sync";
 
 let win: BrowserWindow | null = null;
 let busy = false;
@@ -44,6 +45,12 @@ let syncBusy = false;
 // TD actually did locally while offline — exactly the moment this sync
 // exists to protect, not endanger.
 let pullSuspended = false;
+
+// Mirrors the network watcher's last-known status for the proxy server's
+// routing decision — the watcher only *forwards* transitions to the
+// renderer, nothing previously kept the current value anywhere in main.ts.
+let isOnline = true;
+let proxyPort = 0;
 
 function sendSyncStatus(outcome: { ok: boolean; summary: string }): void {
   win?.webContents.send("sync-status", { type: "sync", ...outcome, at: Date.now() });
@@ -96,10 +103,12 @@ function startAutoPull(): void {
 app.whenReady().then(() => {
   createWindow();
   startNetworkWatcher((status) => {
+    isOnline = status === "online";
     if (status === "offline" && loadConfig().trackedTournamentId) pullSuspended = true;
     win?.webContents.send("network-status", { type: "network", status, pullSuspended });
   });
   startAutoPull();
+  proxyPort = startProxyServer(() => isOnline);
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -161,7 +170,9 @@ ipcMain.handle("get-lan-ips", () => {
   return addresses;
 });
 
-ipcMain.handle("open-panel", () => shell.openExternal("http://localhost:8080"));
+ipcMain.handle("open-panel", () => shell.openExternal(`http://localhost:${proxyPort || 8080}`));
+
+ipcMain.handle("get-proxy-port", () => proxyPort);
 
 // Setup/start/stop all funnel through one guard so two long-running compose
 // commands never run concurrently against the same stack.
@@ -182,7 +193,40 @@ ipcMain.handle("run-setup", () =>
   withBusyGuard(async () => {
     const repoPath = requireRepoPath();
     if (!win) return;
-    await runSetup(repoPath, streamTo(win, "log"));
+    // When cloud sync is already connected, give the local club the SAME id
+    // as its cloud counterpart (see initLocalClub.ts) — the prerequisite for
+    // auth/session continuity across the single-address proxy. A failure to
+    // reach cloud here (not configured yet, offline right now) must never
+    // block setup itself — getCloudClubId already swallows its own errors.
+    const cloudClubId = (await getCloudClubId(loadConfig())) ?? undefined;
+    const ok = await runSetup(repoPath, streamTo(win, "log"), cloudClubId);
+    if (ok) saveConfig({ setupDone: true });
+  }),
+);
+
+// The one button the TD actually needs day to day: does the slow one-time
+// setup only the first time (tracked by config.setupDone — rebuilding
+// images/migrating every single launch would be needlessly slow), then
+// just starts the stack. Setup's own last step already runs `up -d` for
+// everything, so there's nothing left to do after a fresh setup succeeds.
+ipcMain.handle("smart-start", () =>
+  withBusyGuard(async () => {
+    const repoPath = requireRepoPath();
+    if (!win) return;
+    const config = loadConfig();
+    if (!config.setupDone) {
+      const cloudClubId = (await getCloudClubId(config)) ?? undefined;
+      const ok = await runSetup(repoPath, streamTo(win, "log"), cloudClubId);
+      if (!ok) return; // runSetup already logged the specific failure
+      saveConfig({ setupDone: true });
+      return;
+    }
+    await runCommand(
+      "docker",
+      ["compose", "-f", "docker-compose.local.yml", "up", "-d"],
+      { cwd: repoPath },
+      streamTo(win, "log"),
+    );
   }),
 );
 

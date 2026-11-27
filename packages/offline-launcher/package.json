@@ -8,7 +8,11 @@
     "dev": "pnpm build && electron .",
     "dist": "pnpm build && electron-builder"
   },
+  "dependencies": {
+    "http-proxy": "1.18.1"
+  },
   "devDependencies": {
+    "@types/http-proxy": "1.17.16",
     "@types/node": "22.10.5",
     "electron": "33.2.1",
     "electron-builder": "25.1.8",

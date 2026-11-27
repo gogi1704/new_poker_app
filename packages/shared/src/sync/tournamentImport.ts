@@ -86,16 +86,28 @@ export async function importTournamentExport(
   const mode = options.mode ?? "archive";
 
   const scheduledAt = new Date(tournament.scheduledAt);
-  const [existingTournament] = await db
-    .select()
-    .from(schema.tournaments)
-    .where(
-      and(
-        eq(schema.tournaments.clubId, clubId),
-        eq(schema.tournaments.name, tournament.name),
-        eq(schema.tournaments.scheduledAt, scheduledAt),
-      ),
-    );
+  // "archive" (one-shot cross-club CLI transplant, no identity relationship
+  // between source/destination) still matches by name+scheduledAt, same as
+  // always. "sync"/"mirror" match by the source tournament's own id instead
+  // — see tournamentExport.ts/Phase 14 of the plan: preserving the id across
+  // repeated cloud<->local imports is what lets a single tournament be
+  // addressed the same way regardless of which backend answers the request.
+  const [existingTournament] =
+    mode === "archive"
+      ? await db
+          .select()
+          .from(schema.tournaments)
+          .where(
+            and(
+              eq(schema.tournaments.clubId, clubId),
+              eq(schema.tournaments.name, tournament.name),
+              eq(schema.tournaments.scheduledAt, scheduledAt),
+            ),
+          )
+      : await db
+          .select()
+          .from(schema.tournaments)
+          .where(and(eq(schema.tournaments.clubId, clubId), eq(schema.tournaments.id, tournament.id)));
 
   if (existingTournament && mode === "archive") {
     return {
@@ -166,8 +178,24 @@ export async function importTournamentExport(
     await db.delete(schema.blindLevels).where(eq(schema.blindLevels.tournamentId, newTournament.id));
     await db.delete(schema.registrations).where(eq(schema.registrations.tournamentId, newTournament.id));
     await db.delete(schema.tables).where(eq(schema.tables.tournamentId, newTournament.id));
+    // These four were previously only ever inserted, never cleared — a
+    // repeated re-import of the same already-existing tournament (the whole
+    // point of "mirror" mode, re-run every minute by the offline-launcher's
+    // auto-pull against a tournament that's still running) duplicated every
+    // knockout/rebuy/result/ledger row on every single cycle instead of
+    // replacing them.
+    await db.delete(schema.knockouts).where(eq(schema.knockouts.tournamentId, newTournament.id));
+    await db.delete(schema.rebuyAddonTransactions).where(eq(schema.rebuyAddonTransactions.tournamentId, newTournament.id));
+    await db.delete(schema.tournamentResults).where(eq(schema.tournamentResults.tournamentId, newTournament.id));
+    await db.delete(schema.rpsLedger).where(eq(schema.rpsLedger.tournamentId, newTournament.id));
   } else {
-    [newTournament] = await db.insert(schema.tournaments).values({ clubId, ...tournamentValues }).returning();
+    // Preserve the source id on first insert too (sync/mirror only) — so a
+    // tournament mirrored for the very first time already matches by id on
+    // any later pull/push, not just from the second sync onward.
+    [newTournament] = await db
+      .insert(schema.tournaments)
+      .values({ clubId, ...(mode !== "archive" ? { id: tournament.id } : {}), ...tournamentValues })
+      .returning();
   }
 
   // Tables are matched/remapped by tableNo (not id, same reasoning as player
